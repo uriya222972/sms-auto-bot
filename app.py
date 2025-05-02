@@ -39,6 +39,10 @@ session = {
     'waiting_for_group_choice': {}
 }
 
+@app.route('/')
+def index():
+    return redirect(url_for('login'))
+
 def get_user_by_phone(phone):
     for username, data in users.items():
         if data["phone"] == phone:
