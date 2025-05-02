@@ -82,7 +82,11 @@ def send_sms(phone, message, user_data):
     </Inforu>
     """
     headers = {'Content-Type': 'application/xml'}
-    return requests.post("https://api.inforu.co.il/SendMessageXml.ashx", data=payload.encode('utf-8'), headers=headers)
+    response = requests.post("https://api.inforu.co.il/SendMessageXml.ashx", data=payload.encode('utf-8'), headers=headers)
+    print("== תשובת Inforu =====================")
+    print(response.text)
+    print("=====================================")
+    return response
 
 @app.route('/inbound', methods=['POST'])
 def inbound_sms():
@@ -117,12 +121,7 @@ def inbound_sms():
         session['waiting_for_group_choice'][phone] = False
         session['last_message'][phone] = None
 
-response = requests.post("https://api.inforu.co.il/SendMessageXml.ashx", data=payload.encode('utf-8'), headers=headers)
-print("== תשובת Inforu =====================")
-print(response.text)
-print("=====================================")
-return response
-
+    return Response("<Inforu>OK</Inforu>", mimetype='application/xml')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
