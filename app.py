@@ -50,6 +50,7 @@ def get_user_by_phone(phone):
     return None, None
 
 def send_sms(phone, message, user_data):
+    clean_phone = phone.strip().replace('-', '').replace(' ', '')
     payload = f"""
     <Inforu>
       <User>
@@ -60,7 +61,7 @@ def send_sms(phone, message, user_data):
         <Message>{message}</Message>
       </Content>
       <Recipients>
-        <PhoneNumber>{phone}</PhoneNumber>
+        <PhoneNumber>{clean_phone}</PhoneNumber>
       </Recipients>
       <Settings>
         <Sender>{user_data['sender']}</Sender>
