@@ -145,7 +145,9 @@ def forgot_password():
         username, user_data = get_user_by_phone(phone)
         if user_data:
             msg = f"שם משתמש: {username}\nסיסמה: {user_data['password']}"
-            send_sms(phone, msg, user_data)
+            temp_user_data = user_data.copy()
+            temp_user_data["sender"] = "0001"
+            send_sms(phone, msg, temp_user_data)
             message = "הסיסמה נשלחה בהודעת SMS."
         else:
             message = "מספר לא נמצא."
