@@ -117,7 +117,12 @@ def inbound_sms():
         session['waiting_for_group_choice'][phone] = False
         session['last_message'][phone] = None
 
-    return Response("<Inforu>OK</Inforu>", mimetype='application/xml')
+response = requests.post("https://api.inforu.co.il/SendMessageXml.ashx", data=payload.encode('utf-8'), headers=headers)
+print("== תשובת Inforu =====================")
+print(response.text)
+print("=====================================")
+return response
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
