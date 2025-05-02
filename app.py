@@ -3,6 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 import json
 import os
+import html
 
 app = Flask(__name__)
 app.secret_key = "verysecretkey"
@@ -51,6 +52,10 @@ def get_user_by_phone(phone):
 
 def send_sms(phone, message, user_data):
     clean_phone = phone.strip().replace('-', '').replace(' ', '')
+    if not clean_phone.isdigit() or len(clean_phone) != 10:
+        print("❌ מספר טלפון לא חוקי לשליחה:", clean_phone)
+        return None
+
     payload = f"""
     <Inforu>
       <User>
@@ -58,7 +63,7 @@ def send_sms(phone, message, user_data):
         <Password>{user_data['inforu_password']}</Password>
       </User>
       <Content Type=\"sms\">
-        <Message>{message}</Message>
+        <Message>{html.escape(message)}</Message>
       </Content>
       <Recipients>
         <PhoneNumber>{clean_phone}</PhoneNumber>
