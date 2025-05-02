@@ -56,23 +56,22 @@ def send_sms(phone, message, user_data):
         print("❌ מספר טלפון לא חוקי לשליחה:", clean_phone)
         return None
 
-    payload = f"""
-    <Inforu>
-      <User>
-        <Username>{user_data['inforu_username']}</Username>
-        <Password>{user_data['inforu_password']}</Password>
-      </User>
-      <Content Type=\"sms\">
-        <Message>{html.escape(message)}</Message>
-      </Content>
-      <Recipients>
-        <PhoneNumber>{clean_phone}</PhoneNumber>
-      </Recipients>
-      <Settings>
-        <Sender>{user_data['sender']}</Sender>
-      </Settings>
-    </Inforu>
-    """
+    payload = f'<Inforu>' \
+              f'<User>' \
+              f'<Username>{user_data["inforu_username"]}</Username>' \
+              f'<Password>{user_data["inforu_password"]}</Password>' \
+              f'</User>' \
+              f'<Content Type="sms">' \
+              f'<Message>{html.escape(message)}</Message>' \
+              f'</Content>' \
+              f'<Recipients>' \
+              f'<PhoneNumber>{clean_phone}</PhoneNumber>' \
+              f'</Recipients>' \
+              f'<Settings>' \
+              f'<Sender>{user_data["sender"]}</Sender>' \
+              f'</Settings>' \
+              f'</Inforu>'
+
     headers = {'Content-Type': 'application/xml'}
     print("== PAYLOAD ================")
     print(payload)
