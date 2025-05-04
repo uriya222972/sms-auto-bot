@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>הודעות נכנסות</title>
+    <style>
+        body { font-family: sans-serif; direction: rtl; padding: 20px; background: #f7f7f7; }
+        .msg { background: #fff; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <h1>📥 הודעות שהתקבלו</h1>
+    <div id="messages">טוען...</div>
+
+    <script>
+        async function loadMessages() {
+            const res = await fetch('/messages');
+            const messages = await res.json();
+            const container = document.getElementById('messages');
+            container.innerHTML = '';
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'msg';
+                div.innerHTML = `<b>מ:</b> ${msg.from || 'לא ידוע'}<br><b>תוכן:</b> ${msg.text || '-'}<br><small>${msg.time}</small>`;
+                container.appendChild(div);
+            });
+        }
+
+        loadMessages();
+        setInterval(loadMessages, 5000); // רענון כל 5 שניות
+    </script>
+</body>
+</html>
