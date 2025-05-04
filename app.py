@@ -34,11 +34,6 @@ if not users:
     }
     save_users()
 
-session = {
-    'last_message': {},
-    'waiting_for_group_choice': {}
-}
-
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -55,32 +50,26 @@ def send_sms(phone, message, user_data):
         print("❌ מספר טלפון לא חוקי לשליחה:", clean_phone)
         return None
 
-    payload = (
-        f'<Inforu>'
-        f'<User>'
-        f'<Username>{user_data["inforu_username"]}</Username>'
-        f'<Password>{user_data["inforu_password"]}</Password>'
-        f'</User>'
-        f'<Content Type="sms">'
-        f'<Message><![CDATA[{message}]]></Message>'
-        f'</Content>'
-        f'<Recipients>'
-        f'<PhoneNumber>{clean_phone}</PhoneNumber>'
-        f'</Recipients>'
-        f'<Settings>'
-        f'<Sender>{user_data["sender"]}</Sender>'
-        f'</Settings>'
-        f'</Inforu>'
-    )
+    payload = f'''<Inforu>
+<User>
+<Username>{user_data["inforu_username"]}</Username>
+<Password>{user_data["inforu_password"]}</Password>
+</User>
+<Content Type="sms">
+<Message><![CDATA[{message}]]></Message>
+</Content>
+<Recipients>
+<PhoneNumber>{clean_phone}</PhoneNumber>
+</Recipients>
+<Settings>
+<Sender>{user_data["sender"]}</Sender>
+</Settings>
+</Inforu>'''
 
     headers = {'Content-Type': 'application/xml'}
-    print("== PAYLOAD ================")
-    print(payload)
-    print("============================")
+    print("== PAYLOAD ================\n" + payload + "\n============================")
     response = requests.post("https://api.inforu.co.il/SendMessageXml.ashx", data=payload.encode('utf-8'), headers=headers)
-    print("== תשובת Inforu ================")
-    print(response.text)
-    print("=================================")
+    print("== תשובת Inforu ================\n" + response.text + "\n=================================")
     return response
 
 @app.route('/forgot-password', methods=['GET', 'POST'])
@@ -127,21 +116,26 @@ def login():
         <a href="{{ url_for('forgot_password') }}">שכחתי סיסמה</a>
     ''', error=error)
 
+@app.route('/logout')
+def logout():
+    flask_session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/admin')
 def admin_panel():
     if 'admin' not in flask_session:
         return redirect(url_for('login'))
     return render_template_string("""
-        <h2>ברוך הבא, {{ username }}</h2>
-        <p><a href="{{ url_for('view_inbound_log') }}">צפה ביומן הודעות נכנסות</a></p>
-        <p><a href="{{ url_for('logout') }}">התנתק</a></p>
-    """, username=flask_session['admin'])
+        <h2>דף ניהול</h2>
+        <p>ברוך הבא {{ flask_session['admin'] }}</p>
+        <a href="{{ url_for('view_inbound_log') }}">יומן הודעות נכנסות</a><br>
+        <a href="{{ url_for('logout') }}">התנתק</a>
+    """)
 
 @app.route('/inbound', methods=['POST'])
 def inbound_sms():
     xml_data = request.data.decode('utf-8')
     
-    # לוג כללי של כל בקשה נכנסת (גם אם לא XML תקין)
     with open("inbound_log.txt", "a", encoding="utf-8") as log_file:
         log_file.write(f"[קלט גולמי]\n{xml_data}\n")
 
@@ -171,4 +165,3 @@ def view_inbound_log():
 
 if __name__ == '__main__':
     app.run(debug=True)
-
