@@ -129,5 +129,14 @@ def logout():
     flask_session.pop('admin', None)
     return redirect(url_for('login'))
 
+@app.route('/inbound', methods=['POST'])
+def inbound_sms():
+    xml_data = request.data.decode('utf-8')
+    print("== הודעת Webhook שהתקבלה מ־Inforu ==")
+    print(xml_data)
+    print("======================================")
+    return Response("<Inforu>OK</Inforu>", mimetype='application/xml')
+
+
 if __name__ == '__main__':
     app.run(debug=True)
