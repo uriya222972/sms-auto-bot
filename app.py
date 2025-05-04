@@ -3,7 +3,6 @@ import requests
 import xml.etree.ElementTree as ET
 import json
 import os
-import html
 
 app = Flask(__name__)
 app.secret_key = "verysecretkey"
@@ -56,21 +55,23 @@ def send_sms(phone, message, user_data):
         print("❌ מספר טלפון לא חוקי לשליחה:", clean_phone)
         return None
 
-    payload = f'<Inforu>' \
-              f'<User>' \
-              f'<Username>{user_data["inforu_username"]}</Username>' \
-              f'<Password>{user_data["inforu_password"]}</Password>' \
-              f'</User>' \
-              f'<Content Type="sms">' \
-              f'<Message>{html.escape(message)}</Message>' \
-              f'</Content>' \
-              f'<Recipients>' \
-              f'<PhoneNumber>{clean_phone}</PhoneNumber>' \
-              f'</Recipients>' \
-              f'<Settings>' \
-              f'<Sender>{user_data["sender"]}</Sender>' \
-              f'</Settings>' \
-              f'</Inforu>'
+    payload = (
+        f'<Inforu>'
+        f'<User>'
+        f'<Username>{user_data["inforu_username"]}</Username>'
+        f'<Password>{user_data["inforu_password"]}</Password>'
+        f'</User>'
+        f'<Content Type="sms">'
+        f'<Message><![CDATA[{message}]]></Message>'
+        f'</Content>'
+        f'<Recipients>'
+        f'<PhoneNumber>{clean_phone}</PhoneNumber>'
+        f'</Recipients>'
+        f'<Settings>'
+        f'<Sender>{user_data["sender"]}</Sender>'
+        f'</Settings>'
+        f'</Inforu>'
+    )
 
     headers = {'Content-Type': 'application/xml'}
     print("== PAYLOAD ================")
@@ -108,21 +109,33 @@ def forgot_password():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = ""
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         if username in users and users[username]['password'] == password:
             flask_session['admin'] = username
             return redirect(url_for('admin_panel'))
-        return "שגיאת התחברות"
+        error = "שם משתמש או סיסמה שגויים."
     return render_template_string('''
         <form method="post">
             <input name="username" placeholder="שם משתמש">
             <input name="password" type="password" placeholder="סיסמה">
             <button type="submit">התחבר</button>
         </form>
+        <p style="color:red">{{ error }}</p>
         <a href="{{ url_for('forgot_password') }}">שכחתי סיסמה</a>
-    ''')
+    ''', error=error)
+
+@app.route('/admin')
+def admin_panel():
+    if 'admin' not in flask_session:
+        return redirect(url_for('login'))
+    return render_template_string("""
+        <h2>ברוך הבא, {{ username }}</h2>
+        <p><a href="{{ url_for('view_inbound_log') }}">צפה ביומן הודעות נכנסות</a></p>
+        <p><a href="{{ url_for('logout') }}">התנתק</a></p>
+    """, username=flask_session['admin'])
 
 @app.route('/logout')
 def logout():
@@ -132,11 +145,29 @@ def logout():
 @app.route('/inbound', methods=['POST'])
 def inbound_sms():
     xml_data = request.data.decode('utf-8')
-    print("== הודעת Webhook שהתקבלה מ־Inforu ==")
-    print(xml_data)
-    print("======================================")
+    try:
+        root = ET.fromstring(xml_data)
+        phone = root.findtext('PhoneNumber')
+        message = root.findtext('Message')
+        with open("inbound_log.txt", "a", encoding="utf-8") as log_file:
+            log_file.write(f"מספר: {phone}\nהודעה: {message}\n---\n")
+    except Exception as e:
+        with open("inbound_log.txt", "a", encoding="utf-8") as log_file:
+            log_file.write(f"שגיאה בקריאת XML: {str(e)}\n---\n")
     return Response("<Inforu>OK</Inforu>", mimetype='application/xml')
 
+@app.route('/inbound-log')
+def view_inbound_log():
+    if not os.path.exists("inbound_log.txt"):
+        return "לא התקבלו הודעות עדיין."
+    with open("inbound_log.txt", "r", encoding="utf-8") as f:
+        content = f.read()
+    return render_template_string("""
+        <h2>יומן הודעות נכנסות</h2>
+        <pre style='direction: rtl; background-color: #f4f4f4; padding: 15px; border-radius: 8px;'>{{ content }}</pre>
+        <a href='{{ url_for("index") }}'>חזרה</a>
+    """, content=content)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
