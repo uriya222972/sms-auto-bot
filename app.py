@@ -137,14 +137,14 @@ def admin_panel():
         <p><a href="{{ url_for('logout') }}">התנתק</a></p>
     """, username=flask_session['admin'])
 
-@app.route('/logout')
-def logout():
-    flask_session.pop('admin', None)
-    return redirect(url_for('login'))
-
 @app.route('/inbound', methods=['POST'])
 def inbound_sms():
     xml_data = request.data.decode('utf-8')
+    
+    # לוג כללי של כל בקשה נכנסת (גם אם לא XML תקין)
+    with open("inbound_log.txt", "a", encoding="utf-8") as log_file:
+        log_file.write(f"[קלט גולמי]\n{xml_data}\n")
+
     try:
         root = ET.fromstring(xml_data)
         phone = root.findtext('PhoneNumber')
@@ -154,6 +154,7 @@ def inbound_sms():
     except Exception as e:
         with open("inbound_log.txt", "a", encoding="utf-8") as log_file:
             log_file.write(f"שגיאה בקריאת XML: {str(e)}\n---\n")
+    
     return Response("<Inforu>OK</Inforu>", mimetype='application/xml')
 
 @app.route('/inbound-log')
