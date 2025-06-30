@@ -24,7 +24,7 @@ HTML_FORM = '''
 '''
 
 # כאן הטוקן הבסיסי שלך (החלף אם צריך)
-AUTH_TOKEN = "Basic MjJ1cml5YTIyOjRkYzYyZTBhLTRkNzAtNDZiMC05ZmZkLTIyZmM5ZDBmYzViMQ=="
+AUTH_TOKEN = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0=="
 
 @app.route("/", methods=["GET", "POST"])
 def send_sms():
