@@ -1,37 +1,60 @@
+from flask import Flask, request, render_template_string
 import requests
 
-# טוקן בסיסי מ־Inforu
-basic_token = "Basic MjJ1cml5YTIyOjRkYzYyZTBhLTRkNzAtNDZiMC05ZmZkLTIyZmM5ZDBmYzViMQ=="
+app = Flask(__name__)  # 🔴 חובה לשים את זה
 
-# פרטי ההודעה
-recipient = "0585906040"  # החלף במספר אמיתי לבדיקה
-message = "שלום! זו הודעת בדיקה דרך Inforu API V2"
-sender = "0001"  # מזהה שולח מאושר
+BASIC_TOKEN = "Basic MjJ1cml5YTIyOjRkYzYyZTBhLTRkNzAtNDZiMC05ZmZkLTIyZmM5ZDBmYzViMQ=="
+SENDER_NAME = "0001"
 
-# גוף הבקשה
-payload = {
-    "data": {
-        "Message": {
-            "Sender": sender,
-            "Content": message,
-            "Recipients": [
-                {"Phone": recipient}
-            ]
-        }
-    }
-}
+HTML_FORM = """
+<!doctype html>
+<html>
+  <head><title>שליחת SMS</title></head>
+  <body style="direction:rtl; font-family:Arial; padding:20px;">
+    <h2>שליחת SMS דרך Inforu</h2>
+    <form method="post">
+      <label>מספר טלפון:</label><br>
+      <input type="text" name="recipient" required><br><br>
+      <label>תוכן ההודעה:</label><br>
+      <textarea name="message" rows="5" cols="50" required></textarea><br><br>
+      <button type="submit">שלח</button>
+    </form>
+    {% if response %}
+      <h3>תשובת Inforu:</h3>
+      <pre>{{ response }}</pre>
+    {% endif %}
+  </body>
+</html>
+"""
 
-# שליחת הבקשה
-response = requests.post(
-    url="https://capi.inforu.co.il/api/v2/SMS/SendSms",
-    headers={
-        "Authorization": basic_token,
-        "Content-Type": "application/json"
-    },
-    json=payload
-)
+@app.route("/", methods=["GET", "POST"])
+def send_sms():
+    response_text = ""
+    if request.method == "POST":
+        recipient = request.form.get("recipient", "").strip()
+        message = request.form.get("message", "").strip()
 
-# תוצאות
-print("Status Code:", response.status_code)
-print("Response:")
-print(response.text)
+        if not recipient or not message:
+            response_text = "שגיאה: חסר מספר או טקסט"
+        else:
+            payload = {
+                "data": {
+                    "Message": {
+                        "Sender": SENDER_NAME,
+                        "Content": message,
+                        "Recipients": [{"Phone": recipient}]
+                    }
+                }
+            }
+
+            r = requests.post(
+                "https://capi.inforu.co.il/api/v2/SMS/SendSms",
+                headers={
+                    "Authorization": BASIC_TOKEN,
+                    "Content-Type": "application/json"
+                },
+                json=payload
+            )
+            response_text = r.text
+
+    return render_template_string(HTML_FORM, response=response_text)
