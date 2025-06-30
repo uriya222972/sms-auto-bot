@@ -1,39 +1,37 @@
 import requests
 
-# פרטי התחברות שלך
-USERNAME = "22uriya22"
-API_TOKEN = "15d1f6b5-1adf-4f6a-ba65-2917a07cd368"
-SENDER_NAME = "0001"
+# טוקן בסיסי מ־Inforu
+basic_token = "Basic MjJ1cml5YTIyOjRkYzYyZTBhLTRkNzAtNDZiMC05ZmZkLTIyZmM5ZDBmYzViMQ=="
 
-# קלט מהמשתמש
-recipient = input("הכנס מספר טלפון (למשל 0501234567): ").strip()
-message = input("הכנס את תוכן ההודעה שברצונך לשלוח: ").strip()
+# פרטי ההודעה
+recipient = "0585906040"  # החלף במספר אמיתי לבדיקה
+message = "שלום! זו הודעת בדיקה דרך Inforu API V2"
+sender = "0001"  # מזהה שולח מאושר
 
-# הרכבת XML פשוט בלי הזחות מיותרות
-xml_data = f"""<?xml version="1.0" encoding="utf-8"?>
-<Inforu>
-<User>
-<Username>{USERNAME}</Username>
-<ApiToken>{API_TOKEN}</ApiToken>
-</User>
-<Content>
-<Message>{message}</Message>
-</Content>
-<Recipients>
-<PhoneNumber>{recipient}</PhoneNumber>
-</Recipients>
-<Settings>
-<Sender>{SENDER_NAME}</Sender>
-</Settings>
-</Inforu>"""
+# גוף הבקשה
+payload = {
+    "data": {
+        "Message": {
+            "Sender": sender,
+            "Content": message,
+            "Recipients": [
+                {"Phone": recipient}
+            ]
+        }
+    }
+}
 
-# שליחה ל־Inforu
+# שליחת הבקשה
 response = requests.post(
-    url="https://api.inforu.co.il/SendMessageXml.ashx",
-    data=xml_data.encode('utf-8'),
-    headers={'Content-Type': 'application/xml; charset=utf-8'}
+    url="https://capi.inforu.co.il/api/v2/SMS/SendSms",
+    headers={
+        "Authorization": basic_token,
+        "Content-Type": "application/json"
+    },
+    json=payload
 )
 
-# פלט התוצאה
-print("\nתשובת Inforu:")
+# תוצאות
+print("Status Code:", response.status_code)
+print("Response:")
 print(response.text)
