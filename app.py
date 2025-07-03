@@ -7,13 +7,14 @@ from io import TextIOWrapper, StringIO
 app = Flask(__name__)
 
 API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
-AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="  # הטוקן שלך
-SENDER = "0001"  # מזהה השולח המאושר
+AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
+SENDER = "0001"
 
 rows = []
+sent_indices = set()
 current_index = 0
-recipient_number = ""  # מספר המקבל אליו תישלח כל שורה
-responses = {}  # שמירת תגובות לפי מספר שורה
+recipient_number = ""
+responses = {}
 
 HTML_FORM = """
 <!DOCTYPE html>
@@ -68,11 +69,11 @@ HTML_SENT = """
             <th>האם נשלח</th>
             <th>תגובה</th>
         </tr>
-        {% for i, r in enumerate(all_rows) %}
+        {% for i in range(all_rows|length) %}
         <tr>
             <td>{{ i + 1 }}</td>
-            <td>{{ r }}</td>
-            <td>{{ '✓' if i < current_index else '' }}</td>
+            <td>{{ all_rows[i] }}</td>
+            <td>{{ '✓' if i in sent_indices else '' }}</td>
             <td>{{ responses.get(i, '') }}</td>
         </tr>
         {% endfor %}
@@ -83,7 +84,7 @@ HTML_SENT = """
 
 @app.route("/", methods=["GET", "POST"])
 def upload():
-    global rows, current_index, recipient_number, responses
+    global rows, current_index, recipient_number, responses, sent_indices
     if request.method == "POST":
         file = request.files["file"]
         recipient_number = request.form.get("recipient", "")
@@ -93,13 +94,17 @@ def upload():
             rows = [", ".join(r).strip() for r in reader if any(r)]
             current_index = 0
             responses = {}
+            sent_indices = set()
             return redirect(url_for("send_next"))
     return HTML_FORM
 
 @app.route("/send", methods=["GET", "POST"])
 def send_next():
-    global rows, current_index, recipient_number, responses
+    global rows, current_index, recipient_number, responses, sent_indices
     inforu_response = None
+
+    while current_index < len(rows) and current_index in sent_indices:
+        current_index += 1
 
     if current_index >= len(rows):
         return "סיימנו לשלוח את כל השורות. <a href='/download'>הורד קובץ תגובות</a>"
@@ -130,10 +135,12 @@ def send_next():
     try:
         res = requests.post(API_URL, headers=headers, json=data)
         inforu_response = json.dumps(res.json(), ensure_ascii=False, indent=2)
+        sent_indices.add(current_index)
     except Exception as e:
         inforu_response = json.dumps({"error": str(e)}, ensure_ascii=False)
 
-    return render_template_string(HTML_SENT, phone=phone, row=row, inforu_response=inforu_response, all_rows=rows, responses=responses, current_index=current_index)
+    return render_template_string(HTML_SENT, phone=phone, row=row, inforu_response=inforu_response,
+                                  all_rows=rows, responses=responses, sent_indices=sent_indices)
 
 @app.route("/download")
 def download():
