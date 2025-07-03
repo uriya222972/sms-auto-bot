@@ -5,7 +5,7 @@ import json  # נוספה כדי להמיר תשובה למחרוזת JSON
 app = Flask(__name__)
 
 API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
-AUTH_HEADER = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0"  # הטוקן שלך
+AUTH_HEADER = "Basic MjJ1cml5YTIyOjE1ZDFmNmI1LTFhZGYtNGY2YS1iYTY1LSAyOTE3YTA3Y2QzNjg="  # הטוקן שלך
 SENDER = "0537038545"  # מזהה השולח המאושר
 
 HTML = """
