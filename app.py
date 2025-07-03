@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, url_for, send_file
+from flask import Flask, request, render_template_string, redirect, url_for, send_file, Response
 import requests
 import csv
 import json
@@ -51,6 +51,7 @@ HTML_SENT = """
     <form method=\"post\">
         <label>הזן תשובה מהמשתמש (ספרה):</label><br>
         <input type=\"text\" name=\"response_digit\" maxlength=\"1\" required><br><br>
+        <input type=\"hidden\" name=\"index\" value=\"{{ current_index }}\">
         <input type=\"submit\" value=\"שלח שורה הבאה\">
     </form>
     {% if inforu_response %}
@@ -103,18 +104,19 @@ def send_next():
     global rows, current_index, recipient_number, responses, sent_indices
     inforu_response = None
 
+    if request.method == "POST":
+        digit = request.form.get("response_digit")
+        index = int(request.form.get("index"))
+        if digit and digit.isdigit():
+            responses[index] = digit
+            current_index += 1
+            return redirect(url_for("send_next"))
+
     while current_index < len(rows) and current_index in sent_indices:
         current_index += 1
 
     if current_index >= len(rows):
         return "סיימנו לשלוח את כל השורות. <a href='/download'>הורד קובץ תגובות</a>"
-
-    if request.method == "POST":
-        digit = request.form.get("response_digit")
-        if digit and digit.isdigit():
-            responses[current_index] = digit
-            current_index += 1
-            return redirect(url_for("send_next"))
 
     row = rows[current_index]
     phone = recipient_number
@@ -140,7 +142,8 @@ def send_next():
         inforu_response = json.dumps({"error": str(e)}, ensure_ascii=False)
 
     return render_template_string(HTML_SENT, phone=phone, row=row, inforu_response=inforu_response,
-                                  all_rows=rows, responses=responses, sent_indices=sent_indices)
+                                  all_rows=rows, responses=responses, sent_indices=sent_indices,
+                                  current_index=current_index)
 
 @app.route("/download")
 def download():
@@ -150,7 +153,11 @@ def download():
     for i, row in enumerate(rows):
         writer.writerow([i + 1, row, responses.get(i, "")])
     output.seek(0)
-    return send_file(output, mimetype='text/csv', as_attachment=True, download_name="sms_responses.csv")
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={"Content-Disposition": "attachment;filename=sms_responses.csv"}
+    )
 
 if __name__ == "__main__":
     app.run(debug=True)
