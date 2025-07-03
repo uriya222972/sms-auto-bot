@@ -1,12 +1,11 @@
 from flask import Flask, request, render_template_string
 import requests
-import json
 
 app = Flask(__name__)
 
 API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
-AUTH_HEADER = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0"
-SENDER = "0537038545"  # מספר מאושר על ידי Inforu
+AUTH_HEADER = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0"  # הטוקן שלך
+SENDER = "0537038545"  # מזהה השולח המאושר
 
 HTML = """
 <!DOCTYPE html>
@@ -38,7 +37,6 @@ HTML = """
 @app.route("/", methods=["GET", "POST"])
 def index():
     response = None
-
     if request.method == "POST":
         phone = request.form["phone"]
         message = request.form["message"]
