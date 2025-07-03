@@ -4,60 +4,65 @@ import json
 
 app = Flask(__name__)
 
-HTML_FORM = '''
+API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
+AUTH_HEADER = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0"
+SENDER = "0537038545"  # מספר מאושר על ידי Inforu
+
+HTML = """
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>שליחת SMS</title></head>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>שליחת SMS</title>
+</head>
 <body>
-  <h2>שליחת SMS דרך Inforu</h2>
-  <form method="POST">
-    מספר טלפון: <input type="text" name="recipient" required><br>
-    טקסט ההודעה: <input type="text" name="text" required><br>
-    <button type="submit">שלח</button>
-  </form>
-  {% if response %}
-    <h3>תגובה מ־Inforu:</h3>
-    <pre>{{ response }}</pre>
-  {% endif %}
+    <h1>שליחת SMS דרך Inforu</h1>
+    <form method="post">
+        <label>מספר טלפון:</label><br>
+        <input type="text" name="phone" required><br><br>
+
+        <label>תוכן ההודעה:</label><br>
+        <textarea name="message" rows="6" cols="50" required></textarea><br><br>
+
+        <input type="submit" value="שלח">
+    </form>
+
+    {% if response %}
+        <h2>תשובת Inforu:</h2>
+        <pre>{{ response | tojson(indent=2, ensure_ascii=False) }}</pre>
+    {% endif %}
 </body>
 </html>
-'''
-
-# כאן הטוקן הבסיסי שלך (החלף אם צריך)
-AUTH_TOKEN = "Basic a2F2aGFyYXY6ZDFkNWQ3NWQtM2ViMi00ZWNmLWFIMTQtOTg4NTg2OTI1MWQ0=="
+"""
 
 @app.route("/", methods=["GET", "POST"])
-def send_sms():
-    response_text = ""
+def index():
+    response = None
+
     if request.method == "POST":
-        recipient = request.form.get("recipient", "").strip()
-        message = request.form.get("text", "").strip()
+        phone = request.form["phone"]
+        message = request.form["message"]
 
-        if not recipient or not message:
-            response_text = "נדרש גם מספר טלפון וגם תוכן הודעה"
-        else:
-            url = "https://api.inforu.co.il/api/v2/SMS/SendSms"
-            headers = {
-                "Authorization": AUTH_TOKEN,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "Data": {
-                    "Message": {
-                        "Sender": "0001",  # שם השולח שלך
-                        "Content": message,
-                        "Recipients": [{"Phone": recipient}]
-                    }
-                }
-            }
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": AUTH_HEADER
+        }
 
-            try:
-                res = requests.post(url, headers=headers, json=payload)
-                response_text = res.text
-            except Exception as e:
-                response_text = f"שגיאה בשליחה: {e}"
+        data = {
+            "Sender": SENDER,
+            "Message": message,
+            "Recipients": [
+                {"Phone": phone}
+            ]
+        }
 
-    return render_template_string(HTML_FORM, response=response_text)
+        try:
+            res = requests.post(API_URL, headers=headers, json=data)
+            response = res.json()
+        except Exception as e:
+            response = {"error": str(e)}
+
+    return render_template_string(HTML, response=response)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(debug=True)
