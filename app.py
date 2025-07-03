@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template_string
 import requests
+import json  # נוספה כדי להמיר תשובה למחרוזת JSON
 
 app = Flask(__name__)
 
@@ -28,7 +29,7 @@ HTML = """
 
     {% if response %}
         <h2>תשובת Inforu:</h2>
-        <pre>{{ response | tojson(indent=2, ensure_ascii=False) }}</pre>
+        <pre>{{ response }}</pre>
     {% endif %}
 </body>
 </html>
@@ -56,9 +57,9 @@ def index():
 
         try:
             res = requests.post(API_URL, headers=headers, json=data)
-            response = res.json()
+            response = json.dumps(res.json(), ensure_ascii=False, indent=2)  # המרנו מ־dict למחרוזת
         except Exception as e:
-            response = {"error": str(e)}
+            response = json.dumps({"error": str(e)}, ensure_ascii=False)
 
     return render_template_string(HTML, response=response)
 
