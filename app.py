@@ -32,7 +32,7 @@ HTML_FORM = """
         <label>מספר טלפון שאליו תישלח כל שורה:</label><br>
         <input type=\"text\" name=\"recipient\" required><br><br>
 
-        <input type=\"submit\" value=\"העלה קובץ\">
+        <input type=\"submit\" value=\"אשר קובץ\">
     </form>
 
     <form method=\"post\" action=\"/reset\">
@@ -41,6 +41,10 @@ HTML_FORM = """
 
     <form method=\"get\" action=\"/send\">
         <button type=\"submit\">שלח שורה ראשונה</button>
+    </form>
+
+    <form action=\"/download\" method=\"get\">
+        <button type=\"submit\">הורד קובץ תגובות</button>
     </form>
 </body>
 </html>
@@ -75,14 +79,14 @@ HTML_SENT = """
         <tr>
             <th>שורה</th>
             <th>תוכן ההודעה</th>
-            <th>האם נשלח</th>
+            <th>נשלח למספר</th>
             <th>תגובה</th>
         </tr>
         {% for i in range(all_rows|length) %}
         <tr>
             <td>{{ i + 1 }}</td>
             <td>{{ all_rows[i] }}</td>
-            <td>{{ '✓' if i in sent_indices else '' }}</td>
+            <td>{{ recipient if i in sent_indices else '' }}</td>
             <td>{{ responses.get(i, '') }}</td>
         </tr>
         {% endfor %}
@@ -148,7 +152,7 @@ def send_next():
 
     data = {
         "Sender": SENDER,
-        "Message": row,
+        "Message": row + "\nהשב ספרה אחת להמשך",
         "Recipients": [
             {"Phone": phone}
         ]
@@ -163,21 +167,38 @@ def send_next():
 
     return render_template_string(HTML_SENT, phone=phone, row=row, inforu_response=inforu_response,
                                   all_rows=rows, responses=responses, sent_indices=sent_indices,
-                                  current_index=current_index)
+                                  current_index=current_index, recipient=recipient_number)
 
 @app.route("/download")
 def download():
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["שורה", "תוכן ההודעה", "תגובה"])
+    writer.writerow(["שורה", "תוכן ההודעה", "נשלח למספר", "תגובה"])
     for i, row in enumerate(rows):
-        writer.writerow([i + 1, row, responses.get(i, "")])
+        sent_to = recipient_number if i in sent_indices else ""
+        response = responses.get(i, "")
+        writer.writerow([i + 1, row, sent_to, response])
     output.seek(0)
     return Response(
         output.getvalue(),
         mimetype='text/csv',
         headers={"Content-Disposition": "attachment;filename=sms_responses.csv"}
     )
+
+@app.route("/incoming", methods=["POST"])
+def incoming_sms():
+    global current_index, responses
+    try:
+        data = request.get_json(force=True)
+        message = data.get("Message")
+        sender = data.get("Phone")
+
+        if current_index in sent_indices and current_index not in responses:
+            responses[current_index] = message
+            current_index += 1
+        return "OK"
+    except Exception as e:
+        return str(e), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
