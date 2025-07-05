@@ -19,8 +19,8 @@ phone_map = {}  # מיפוי בין מספרים לשליחות: מספר -> [א
 responses = {}  # תגובות: אינדקס -> {"message": ..., "time": ...}
 send_log = {}  # יומן שליחה: אינדקס -> {"to": ..., "time": ...}
 
-# טופס HTML בסיסי להצגת כפתורי פעולה
-HTML_FORM = """
+# תבנית HTML כולל טבלה והודעת סטטוס
+HTML_PAGE = """
 <!DOCTYPE html>
 <html lang=\"he\" dir=\"rtl\">
 <head>
@@ -28,11 +28,12 @@ HTML_FORM = """
     <title>שליחת SMS לפי קובץ</title>
 </head>
 <body>
-    <h1>העלאת קובץ CSV</h1>
+    <h1>מערכת שליחת SMS</h1>
+
     <form method=\"post\" enctype=\"multipart/form-data\" action=\"/upload\">
         <label>בחר קובץ CSV (שורה לכל הודעה):</label><br>
-        <input type=\"file\" name=\"file\" accept=\".csv\" required><br><br>
-        <input type=\"submit\" value=\"אשר קובץ\">
+        <input type=\"file\" name=\"file\" accept=\".csv\" required>
+        <input type=\"submit\" value=\"העלה קובץ\">
     </form>
 
     <form method=\"post\" action=\"/reset\">
@@ -42,36 +43,54 @@ HTML_FORM = """
     <form action=\"/download\" method=\"get\">
         <button type=\"submit\">הורד קובץ תגובות</button>
     </form>
+
+    {% if rows %}
+        <h2 style='color: green;'>קובץ נטען. המערכת מחכה להודעות SMS.</h2>
+    {% endif %}
+
+    <h2>סטטוס הודעות</h2>
+    <table border=\"1\">
+        <tr>
+            <th>#</th>
+            <th>תוכן ההודעה</th>
+            <th>נשלח למספר</th>
+            <th>זמן שליחה</th>
+            <th>תגובה</th>
+            <th>זמן תגובה</th>
+        </tr>
+        {% for i, row in enumerate(rows) %}
+        <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ row }}</td>
+            <td>{{ send_log.get(i, {}).get("to", "") }}</td>
+            <td>{{ send_log.get(i, {}).get("time", "") }}</td>
+            <td>{{ responses.get(i, {}).get("message", "") }}</td>
+            <td>{{ responses.get(i, {}).get("time", "") }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 </body>
 </html>
 """
 
 @app.route("/", methods=["GET"])
 def home():
-    # הצגת הטופס הראשי
-    return HTML_FORM
+    return render_template_string(HTML_PAGE, rows=rows, responses=responses, send_log=send_log)
 
 @app.route("/upload", methods=["POST"])
 def upload():
-    # קריאת קובץ CSV מהמשתמש ואיפוס כל הנתונים הקודמים
-    global rows, responses, sent_indices, phone_map, send_log
+    global rows
     file = request.files["file"]
     if file:
         wrapper = TextIOWrapper(file, encoding='utf-8')
         reader = csv.reader(wrapper)
         rows = [", ".join(r).strip() for r in reader if any(r)]
-        responses.clear()
-        sent_indices.clear()
-        phone_map.clear()
-        send_log.clear()
     return redirect(url_for("home"))
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    # איפוס כל הנתונים והודעות
-    global rows, responses, sent_indices, phone_map, send_log
+    global rows, sent_indices, phone_map, send_log
     rows = []
-    responses.clear()
     sent_indices.clear()
     phone_map.clear()
     send_log.clear()
@@ -79,28 +98,26 @@ def reset():
 
 @app.route("/incoming", methods=["POST"])
 def incoming_sms():
-    # עיבוד הודעת SMS נכנסת ושליחת השורה הבאה בתור למגיב
     global rows, responses, phone_map, sent_indices, send_log
     try:
         data = request.get_json(force=True)
         message = data.get("Message")
         sender = data.get("Phone")
 
-        # בדיקה אם המשתמש כבר קיבל שורה. אם כן - נשמור את התגובה
         last_index = None
         if sender in phone_map and phone_map[sender]:
             last_index = phone_map[sender][-1]
-            responses[last_index] = {
-                "message": message,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+            previous = responses.get(last_index, {}).get("message")
+            if previous != message:
+                responses[last_index] = {
+                    "message": message,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
 
-        # חיפוש השורה הבאה שטרם נשלחה
         next_index = 0
         while next_index < len(rows) and next_index in sent_indices:
             next_index += 1
 
-        # אם יש שורות נוספות לשלוח
         if next_index < len(rows):
             row = rows[next_index]
             headers = {
@@ -114,17 +131,14 @@ def incoming_sms():
                     {"Phone": sender}
                 ]
             }
-            try:
-                res = requests.post(API_URL, headers=headers, json=data)
-                res.raise_for_status()
-                sent_indices.add(next_index)
-                send_log[next_index] = {
-                    "to": sender,
-                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                phone_map.setdefault(sender, []).append(next_index)
-            except Exception as e:
-                return f"שגיאה בשליחה: {str(e)}", 500
+            res = requests.post(API_URL, headers=headers, json=data)
+            res.raise_for_status()
+            sent_indices.add(next_index)
+            send_log[next_index] = {
+                "to": sender,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            phone_map.setdefault(sender, []).append(next_index)
 
         return "OK"
     except Exception as e:
@@ -132,7 +146,6 @@ def incoming_sms():
 
 @app.route("/download")
 def download():
-    # ייצוא תגובות לקובץ CSV
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(["שורה", "תוכן ההודעה", "נשלח למספר", "זמן שליחה", "תגובה", "זמן תגובה"])
