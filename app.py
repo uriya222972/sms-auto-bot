@@ -24,15 +24,23 @@ HTML_FORM = """
     <title>שליחת SMS לפי קובץ</title>
 </head>
 <body>
-    <h1>העלאת קובץ CSV ושליחת שורות למספר</h1>
-    <form method=\"post\" enctype=\"multipart/form-data\">
+    <h1>העלאת קובץ CSV</h1>
+    <form method=\"post\" enctype=\"multipart/form-data\" action=\"/upload\">
         <label>בחר קובץ CSV (שורה לכל הודעה):</label><br>
         <input type=\"file\" name=\"file\" accept=\".csv\" required><br><br>
 
         <label>מספר טלפון שאליו תישלח כל שורה:</label><br>
         <input type=\"text\" name=\"recipient\" required><br><br>
 
-        <input type=\"submit\" value=\"העלה ושלח ראשון\">
+        <input type=\"submit\" value=\"העלה קובץ\">
+    </form>
+
+    <form method=\"post\" action=\"/reset\">
+        <button type=\"submit\">מחק קובץ</button>
+    </form>
+
+    <form method=\"get\" action=\"/send\">
+        <button type=\"submit\">שלח שורה ראשונה</button>
     </form>
 </body>
 </html>
@@ -83,21 +91,33 @@ HTML_SENT = """
 </html>
 """
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET"])
+def home():
+    return HTML_FORM
+
+@app.route("/upload", methods=["POST"])
 def upload():
     global rows, current_index, recipient_number, responses, sent_indices
-    if request.method == "POST":
-        file = request.files["file"]
-        recipient_number = request.form.get("recipient", "")
-        if file and recipient_number:
-            wrapper = TextIOWrapper(file, encoding='utf-8')
-            reader = csv.reader(wrapper)
-            rows = [", ".join(r).strip() for r in reader if any(r)]
-            current_index = 0
-            responses = {}
-            sent_indices = set()
-            return redirect(url_for("send_next"))
-    return HTML_FORM
+    file = request.files["file"]
+    recipient_number = request.form.get("recipient", "")
+    if file and recipient_number:
+        wrapper = TextIOWrapper(file, encoding='utf-8')
+        reader = csv.reader(wrapper)
+        rows = [", ".join(r).strip() for r in reader if any(r)]
+        current_index = 0
+        responses = {}
+        sent_indices = set()
+    return redirect(url_for("home"))
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    global rows, current_index, recipient_number, responses, sent_indices
+    rows = []
+    current_index = 0
+    recipient_number = ""
+    responses = {}
+    sent_indices = set()
+    return redirect(url_for("home"))
 
 @app.route("/send", methods=["GET", "POST"])
 def send_next():
