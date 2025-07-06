@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, Response
+from flask import Flask, request, redirect, url_for, render_template, Response
 import requests
 import csv
 from io import TextIOWrapper, StringIO
@@ -18,30 +18,30 @@ responses = {}
 send_log = {}
 scheduled_retries = {}
 
-# ניתן לעדכן response_map דרך טופס
 response_map = {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)}
+custom_template = "שלום {phone}, זו הודעה לדוגמה."
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map
+    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map, custom_template
 
     if request.method == "POST":
-        # XML incoming (Inforu callback)
         if request.form.get("IncomingXML"):
             try:
                 raw_xml = request.form.get("IncomingXML")
                 root = ET.fromstring(raw_xml)
                 sender = root.findtext("PhoneNumber")
                 message = root.findtext("Message")
-                print("📥 XML נכנס:", sender, message)
 
                 last_index = None
                 if sender in phone_map and phone_map[sender]:
                     last_index = phone_map[sender][-1]
                     previous = responses.get(last_index, {}).get("message")
                     if previous != message:
+                        label = response_map.get(message, {}).get("label", "")
                         responses[last_index] = {
                             "message": message,
+                            "label": label,
                             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         if message in response_map:
@@ -52,7 +52,6 @@ def home():
                                     scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
                 return "OK"
             except Exception as e:
-                print("❌ שגיאה בעיבוד XML:", e)
                 return str(e), 400
 
         if "update_response_map" in request.form:
@@ -67,28 +66,29 @@ def home():
                 }
             return redirect(url_for("home"))
 
+        if "update_template" in request.form:
+            custom_template = request.form.get("template", custom_template)
+            return redirect(url_for("home"))
+
         sender = request.form.get("phone")
         message = request.form.get("message")
 
-        # שליחה לכל מי ששלח הודעה בעבר
-        if request.form.get("send_to_all") == "yes" and message:
+        if request.form.get("send_to_all") == "yes" and custom_template:
             unique_phones = list(phone_map.keys())
             headers = {
                 "Content-Type": "application/json; charset=utf-8",
                 "Authorization": AUTH_HEADER
             }
             for phone in unique_phones:
+                personalized_message = custom_template.replace("{phone}", phone)
                 payload = {
                     "Sender": SENDER,
-                    "Message": message,
+                    "Message": personalized_message,
                     "Recipients": [{"Phone": phone}]
                 }
-                print("➡️ שליחה קבוצתית:", payload)
                 res = requests.post(API_URL, headers=headers, json=payload)
-                print("↩️ תשובת Inforu:", res.status_code, res.text)
             return redirect(url_for("home"))
 
-        # שליחה לנמען יחיד
         if sender and message:
             headers = {
                 "Content-Type": "application/json; charset=utf-8",
@@ -99,9 +99,7 @@ def home():
                 "Message": message,
                 "Recipients": [{"Phone": sender}]
             }
-            print("➡️ שליחה ידנית:", payload)
             res = requests.post(API_URL, headers=headers, json=payload)
-            print("↩️ תשובת Inforu:", res.status_code, res.text)
             res.raise_for_status()
 
             send_log[len(rows)] = {
@@ -122,13 +120,7 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return {
-        "rows": rows,
-        "responses": responses,
-        "send_log": send_log,
-        "response_map": response_map,
-        "total_sent": total_sent
-    }
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template)
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -161,6 +153,7 @@ def download():
         "נשלח למספר",
         "זמן שליחה",
         "תוכן תגובה שהתקבלה",
+        "פירוש תגובה",
         "זמן תגובה"
     ])
     for i, row in enumerate(rows):
@@ -170,8 +163,9 @@ def download():
         sent_msg = sent.get("message", row)
         resp = responses.get(i, {})
         resp_msg = resp.get("message", "")
+        resp_label = resp.get("label", "")
         resp_time = resp.get("time", "")
-        writer.writerow([i + 1, sent_msg, sent_to, sent_time, resp_msg, resp_time])
+        writer.writerow([i + 1, sent_msg, sent_to, sent_time, resp_msg, resp_label, resp_time])
     output.seek(0)
     return Response(
         '\ufeff' + output.getvalue(),
