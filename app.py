@@ -3,6 +3,7 @@ import requests
 import csv
 from io import TextIOWrapper, StringIO
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
@@ -26,17 +27,20 @@ def home():
             print("Headers:", dict(request.headers))
             print("Body:", request.get_data(as_text=True))
 
-            try:
-                data = request.get_json(force=True)
-            except Exception:
-                print("⚠️ לא JSON – מנסה לקבל כטופס")
-                data = request.form.to_dict()
+            # חילוץ XML מתוך השדה IncomingXML
+            raw_xml = request.form.get("IncomingXML")
+            if not raw_xml:
+                print("❌ לא נמצא IncomingXML")
+                return "Missing IncomingXML", 400
 
-            message = data.get("Message")
-            sender = data.get("Phone")
+            print("📥 קיבלנו XML:")
+            print(raw_xml)
+            root = ET.fromstring(raw_xml)
+            sender = root.findtext("PhoneNumber")
+            message = root.findtext("Message")
 
-            print("Message:", message)
-            print("Sender:", sender)
+            print("📞 Sender:", sender)
+            print("💬 Message:", message)
 
             last_index = None
             if sender in phone_map and phone_map[sender]:
