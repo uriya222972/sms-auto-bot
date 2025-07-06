@@ -4,7 +4,6 @@ import csv
 import json
 from io import TextIOWrapper, StringIO
 from datetime import datetime
-import os
 
 app = Flask(__name__)
 
@@ -13,15 +12,62 @@ API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
-# משתנים גלובליים לשמירת נתונים
-rows = []  # רשימת ההודעות בקובץ
-sent_indices = set()  # אינדקסים של הודעות שנשלחו
-phone_map = {}  # מיפוי בין מספרים לשליחות: מספר -> [אינדקסים שנשלחו אליו]
-responses = {}  # תגובות: אינדקס -> {"message": ..., "time": ...}
-send_log = {}  # יומן שליחה: אינדקס -> {"to": ..., "time": ...}
+# משתנים גלובליים
+rows = []
+sent_indices = set()
+phone_map = {}
+responses = {}
+send_log = {}
 
-@app.route("/", methods=["GET"])
+@app.route("/", methods=["GET", "POST"])
 def home():
+    global rows, responses, phone_map, sent_indices, send_log
+
+    if request.method == "POST":
+        try:
+            data = request.get_json(force=True)
+            message = data.get("Message")
+            sender = data.get("Phone")
+
+            last_index = None
+            if sender in phone_map and phone_map[sender]:
+                last_index = phone_map[sender][-1]
+                previous = responses.get(last_index, {}).get("message")
+                if previous != message:
+                    responses[last_index] = {
+                        "message": message,
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+
+            next_index = 0
+            while next_index < len(rows) and next_index in sent_indices:
+                next_index += 1
+
+            if next_index < len(rows):
+                row = rows[next_index]
+                headers = {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Authorization": AUTH_HEADER
+                }
+                data = {
+                    "Sender": SENDER,
+                    "Message": row + "\nהשב ספרה אחת להמשך",
+                    "Recipients": [{"Phone": sender}]
+                }
+                res = requests.post(API_URL, headers=headers, json=data)
+                res.raise_for_status()
+                sent_indices.add(next_index)
+                send_log[next_index] = {
+                    "to": sender,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                phone_map.setdefault(sender, []).append(next_index)
+
+            return "OK"
+        except Exception as e:
+            print("שגיאה ב־POST /:", e)
+            return str(e), 400
+
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log)
 
 @app.route("/upload", methods=["POST"])
@@ -36,60 +82,13 @@ def upload():
 
 @app.route("/reset", methods=["POST"])
 def reset():
-    global rows, sent_indices, phone_map, send_log
+    global rows, sent_indices, phone_map, send_log, responses
     rows = []
     sent_indices.clear()
     phone_map.clear()
     send_log.clear()
+    responses.clear()
     return redirect(url_for("home"))
-
-@app.route("/incoming", methods=["POST"])
-def incoming_sms():
-    global rows, responses, phone_map, sent_indices, send_log
-    try:
-        data = request.get_json(force=True)
-        message = data.get("Message")
-        sender = data.get("Phone")
-
-        last_index = None
-        if sender in phone_map and phone_map[sender]:
-            last_index = phone_map[sender][-1]
-            previous = responses.get(last_index, {}).get("message")
-            if previous != message:
-                responses[last_index] = {
-                    "message": message,
-                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-
-        next_index = 0
-        while next_index < len(rows) and next_index in sent_indices:
-            next_index += 1
-
-        if next_index < len(rows):
-            row = rows[next_index]
-            headers = {
-                "Content-Type": "application/json; charset=utf-8",
-                "Authorization": AUTH_HEADER
-            }
-            data = {
-                "Sender": SENDER,
-                "Message": row + "\nהשב ספרה אחת להמשך",
-                "Recipients": [
-                    {"Phone": sender}
-                ]
-            }
-            res = requests.post(API_URL, headers=headers, json=data)
-            res.raise_for_status()
-            sent_indices.add(next_index)
-            send_log[next_index] = {
-                "to": sender,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            phone_map.setdefault(sender, []).append(next_index)
-
-        return "OK"
-    except Exception as e:
-        return str(e), 400
 
 @app.route("/download")
 def download():
