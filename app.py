@@ -1,18 +1,15 @@
 from flask import Flask, request, render_template, redirect, url_for, send_file, Response
 import requests
 import csv
-import json
 from io import TextIOWrapper, StringIO
 from datetime import datetime
 
 app = Flask(__name__)
 
-# הגדרות API של Inforu
 API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
-# משתנים גלובליים
 rows = []
 sent_indices = set()
 phone_map = {}
@@ -25,9 +22,21 @@ def home():
 
     if request.method == "POST":
         try:
-            data = request.get_json(force=True)
+            print("== POST / התקבל ==")
+            print("Headers:", dict(request.headers))
+            print("Body:", request.get_data(as_text=True))
+
+            try:
+                data = request.get_json(force=True)
+            except Exception:
+                print("⚠️ לא JSON – מנסה לקבל כטופס")
+                data = request.form.to_dict()
+
             message = data.get("Message")
             sender = data.get("Phone")
+
+            print("Message:", message)
+            print("Sender:", sender)
 
             last_index = None
             if sender in phone_map and phone_map[sender]:
@@ -49,13 +58,16 @@ def home():
                     "Content-Type": "application/json; charset=utf-8",
                     "Authorization": AUTH_HEADER
                 }
-                data = {
+                payload = {
                     "Sender": SENDER,
                     "Message": row + "\nהשב ספרה אחת להמשך",
                     "Recipients": [{"Phone": sender}]
                 }
-                res = requests.post(API_URL, headers=headers, json=data)
+                print("➡️ שולח:", payload)
+                res = requests.post(API_URL, headers=headers, json=payload)
+                print("↩️ תשובת Inforu:", res.status_code, res.text)
                 res.raise_for_status()
+
                 sent_indices.add(next_index)
                 send_log[next_index] = {
                     "to": sender,
@@ -65,7 +77,7 @@ def home():
 
             return "OK"
         except Exception as e:
-            print("שגיאה ב־POST /:", e)
+            print("❌ שגיאה ב־POST /:", e)
             return str(e), 400
 
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log)
