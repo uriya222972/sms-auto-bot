@@ -26,6 +26,35 @@ def home():
     global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map
 
     if request.method == "POST":
+        # XML incoming (Inforu callback)
+        if request.form.get("IncomingXML"):
+            try:
+                raw_xml = request.form.get("IncomingXML")
+                root = ET.fromstring(raw_xml)
+                sender = root.findtext("PhoneNumber")
+                message = root.findtext("Message")
+                print("📥 XML נכנס:", sender, message)
+
+                last_index = None
+                if sender in phone_map and phone_map[sender]:
+                    last_index = phone_map[sender][-1]
+                    previous = responses.get(last_index, {}).get("message")
+                    if previous != message:
+                        responses[last_index] = {
+                            "message": message,
+                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        if message in response_map:
+                            r = response_map[message]
+                            if r["callback_required"]:
+                                hours = r["hours"]
+                                if last_index is not None:
+                                    scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
+                return "OK"
+            except Exception as e:
+                print("❌ שגיאה בעיבוד XML:", e)
+                return str(e), 400
+
         if "update_response_map" in request.form:
             for key in response_map:
                 label = request.form.get(f"label_{key}", f"ספרה {key}")
