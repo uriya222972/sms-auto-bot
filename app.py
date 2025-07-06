@@ -1,9 +1,10 @@
-from flask import Flask, request, render_template_string, redirect, url_for, send_file, Response
+from flask import Flask, request, render_template, redirect, url_for, send_file, Response
 import requests
 import csv
 import json
 from io import TextIOWrapper, StringIO
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 
@@ -19,63 +20,9 @@ phone_map = {}  # מיפוי בין מספרים לשליחות: מספר -> [א
 responses = {}  # תגובות: אינדקס -> {"message": ..., "time": ...}
 send_log = {}  # יומן שליחה: אינדקס -> {"to": ..., "time": ...}
 
-# תבנית HTML כולל טבלה והודעת סטטוס
-HTML_PAGE = """
-<!DOCTYPE html>
-<html lang=\"he\" dir=\"rtl\">
-<head>
-    <meta charset=\"UTF-8\">
-    <title>שליחת SMS לפי קובץ</title>
-</head>
-<body>
-    <h1>מערכת שליחת SMS</h1>
-
-    <form method=\"post\" enctype=\"multipart/form-data\" action=\"/upload\">
-        <label>בחר קובץ CSV (שורה לכל הודעה):</label><br>
-        <input type=\"file\" name=\"file\" accept=\".csv\" required>
-        <input type=\"submit\" value=\"העלה קובץ\">
-    </form>
-
-    <form method=\"post\" action=\"/reset\">
-        <button type=\"submit\">מחק קובץ</button>
-    </form>
-
-    <form action=\"/download\" method=\"get\">
-        <button type=\"submit\">הורד קובץ תגובות</button>
-    </form>
-
-    {% if rows %}
-        <h2 style='color: green;'>קובץ נטען. המערכת מחכה להודעות SMS.</h2>
-    {% endif %}
-
-    <h2>סטטוס הודעות</h2>
-    <table border=\"1\">
-        <tr>
-            <th>#</th>
-            <th>תוכן ההודעה</th>
-            <th>נשלח למספר</th>
-            <th>זמן שליחה</th>
-            <th>תגובה</th>
-            <th>זמן תגובה</th>
-        </tr>
-        {% for i, row in enumerate(rows) %}
-        <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ row }}</td>
-            <td>{{ send_log.get(i, {}).get("to", "") }}</td>
-            <td>{{ send_log.get(i, {}).get("time", "") }}</td>
-            <td>{{ responses.get(i, {}).get("message", "") }}</td>
-            <td>{{ responses.get(i, {}).get("time", "") }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-</body>
-</html>
-"""
-
 @app.route("/", methods=["GET"])
 def home():
-    return render_template_string(HTML_PAGE, rows=rows, responses=responses, send_log=send_log)
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log)
 
 @app.route("/upload", methods=["POST"])
 def upload():
