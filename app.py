@@ -19,7 +19,7 @@ send_log = {}
 scheduled_retries = {}
 
 response_map = {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)}
-custom_template = "שלום {phone}, זו הודעה לדוגמה."
+custom_template = "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!"
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -50,6 +50,33 @@ def home():
                                 hours = r["hours"]
                                 if last_index is not None:
                                     scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
+
+                # שליחה תגובתית לטלפן בלבד
+                next_index = 0
+                while next_index < len(rows) and next_index in sent_indices:
+                    next_index += 1
+                if next_index < len(rows):
+                    next_message = rows[next_index]
+                    personalized_message = custom_template.replace("{next}", next_message)
+                    headers = {
+                        "Content-Type": "application/json; charset=utf-8",
+                        "Authorization": AUTH_HEADER
+                    }
+                    payload = {
+                        "Sender": SENDER,
+                        "Message": personalized_message,
+                        "Recipients": [{"Phone": sender}]
+                    }
+                    res = requests.post(API_URL, headers=headers, json=payload)
+                    res.raise_for_status()
+                    send_log[next_index] = {
+                        "to": sender,
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "message": personalized_message
+                    }
+                    phone_map.setdefault(sender, []).append(next_index)
+                    sent_indices.add(next_index)
+
                 return "OK"
             except Exception as e:
                 return str(e), 400
@@ -68,48 +95,6 @@ def home():
 
         if "update_template" in request.form:
             custom_template = request.form.get("template", custom_template)
-            return redirect(url_for("home"))
-
-        sender = request.form.get("phone")
-        message = request.form.get("message")
-
-        if request.form.get("send_to_all") == "yes" and custom_template:
-            unique_phones = list(phone_map.keys())
-            headers = {
-                "Content-Type": "application/json; charset=utf-8",
-                "Authorization": AUTH_HEADER
-            }
-            for phone in unique_phones:
-                personalized_message = custom_template.replace("{phone}", phone)
-                payload = {
-                    "Sender": SENDER,
-                    "Message": personalized_message,
-                    "Recipients": [{"Phone": phone}]
-                }
-                res = requests.post(API_URL, headers=headers, json=payload)
-            return redirect(url_for("home"))
-
-        if sender and message:
-            headers = {
-                "Content-Type": "application/json; charset=utf-8",
-                "Authorization": AUTH_HEADER
-            }
-            payload = {
-                "Sender": SENDER,
-                "Message": message,
-                "Recipients": [{"Phone": sender}]
-            }
-            res = requests.post(API_URL, headers=headers, json=payload)
-            res.raise_for_status()
-
-            send_log[len(rows)] = {
-                "to": sender,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "message": message
-            }
-            rows.append(message)
-            sent_indices.add(len(rows) - 1)
-
             return redirect(url_for("home"))
 
     now = datetime.now()
