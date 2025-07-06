@@ -1,164 +1,106 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>מערכת שליחת סמס</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #f9f9f9;
-            padding: 2rem;
-            direction: rtl;
-        }
-        .container {
-            background: white;
-            max-width: 1000px;
-            margin: auto;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.1);
-        }
-        h1, h2 {
-            margin-top: 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 2rem;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 0.6rem;
-        }
-        th {
-            background-color: #eee;
-        }
-        input, select {
-            padding: 0.4rem;
-            margin: 0.2rem 0;
-        }
-        button {
-            margin-top: 1rem;
-            padding: 0.5rem 1rem;
-            background-color: #2196f3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #1976d2;
-        }
-        .flex {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .actions {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-        .card {
-            padding: 1rem;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            margin-top: 1rem;
-            background: #fafafa;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>ניהול הודעות SMS</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    h2 { margin-top: 40px; }
+    input[type="text"], input[type="number"] {
+      padding: 6px; width: 100%; box-sizing: border-box; margin: 4px 0;
+    }
+    label { display: block; margin-top: 10px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 8px; text-align: center; }
+    button { padding: 8px 16px; margin: 5px; }
+    form.inline { display: inline-block; margin-right: 10px; }
+    .row { display: flex; gap: 10px; }
+    .col { flex: 1; }
+  </style>
 </head>
 <body>
-<div class="container">
-    <h1>מערכת שליחת סמס</h1>
 
-    <div class="actions">
-        <form action="/reset" method="post">
-            <button type="submit">🔄 איפוס נתונים</button>
-        </form>
-        <form action="/download" method="get">
-            <button type="submit">⬇️ הורדת תגובות</button>
-        </form>
-    </div>
+<h1>ניהול הודעות SMS</h1>
 
-    <p>סה״כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
+<h2>שליחת הודעה</h2>
+<form method="post">
+  <label>מספר טלפון:</label>
+  <input type="text" name="phone" placeholder="למשל 0501234567">
+  <label>טקסט הודעה:</label>
+  <input type="text" name="message" placeholder="תוכן ההודעה">
+  <button type="submit">שלח הודעה</button>
+</form>
 
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-        <label>העלאת קובץ CSV:</label><br>
-        <input type="file" name="file" onchange="this.form.submit()" required>
-    </form>
+<form method="post">
+  <input type="hidden" name="send_to_all" value="yes">
+  <button type="submit">שלח הודעה לכולם לפי התבנית</button>
+</form>
 
-    <div class="card">
-        <h2>שליחה ידנית של הודעה</h2>
-        <form method="POST" action="/">
-            <div class="flex">
-                <div>
-                    <label>מספר טלפון:</label><br>
-                    <input type="text" name="phone" required>
-                </div>
-                <div>
-                    <label>הודעה:</label><br>
-                    <input type="text" name="message" required>
-                </div>
-            </div>
-            <button type="submit">שלח</button>
-        </form>
-    </div>
+<h2>הגדרת תבנית הודעה עם {phone}</h2>
+<form method="post">
+  <input type="hidden" name="update_template" value="1">
+  <input type="text" name="template" value="{{ template }}" placeholder="שלום {phone}, זו הודעה לדוגמה">
+  <button type="submit">עדכן תבנית</button>
+</form>
 
-    <div class="card">
-        <h2>הגדרת תגובות לספרות</h2>
-        <form method="POST" action="/">
-            <input type="hidden" name="update_response_map" value="1">
-            <table>
-                <thead>
-                    <tr>
-                        <th>ספרה</th>
-                        <th>תיאור</th>
-                        <th>צריך חזרה?</th>
-                        <th>שעות עד חזרה</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for key, info in response_map.items() %}
-                    <tr>
-                        <td>{{ key }}</td>
-                        <td><input type="text" name="label_{{ key }}" value="{{ info.label }}"></td>
-                        <td><input type="checkbox" name="callback_{{ key }}" {% if info.callback_required %}checked{% endif %}></td>
-                        <td><input type="number" name="hours_{{ key }}" value="{{ info.hours }}"></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <button type="submit">💾 שמור הגדרות</button>
-        </form>
-    </div>
+<h2>העלאת קובץ CSV</h2>
+<form action="/upload" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" onchange="this.form.submit()">
+</form>
 
-    <div class="card">
-        <h2>טבלת הודעות ותגובות</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>הודעה שנשלחה</th>
-                    <th>נשלח ל</th>
-                    <th>זמן שליחה</th>
-                    <th>תגובה</th>
-                    <th>זמן תגובה</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for i in range(rows|length) %}
-                <tr>
-                    <td>{{ i + 1 }}</td>
-                    <td>{{ send_log.get(i, {}).get('message', rows[i]) }}</td>
-                    <td>{{ send_log.get(i, {}).get('to', '') }}</td>
-                    <td>{{ send_log.get(i, {}).get('time', '') }}</td>
-                    <td>{{ responses.get(i, {}).get('message', '') }}</td>
-                    <td>{{ responses.get(i, {}).get('time', '') }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+<h2>פעולות</h2>
+<form action="/reset" method="post" class="inline"><button>איפוס</button></form>
+<form action="/download" method="get" class="inline"><button>הורד תגובות</button></form>
+
+<h2>פירוש תגובות (1–9)</h2>
+<form method="post">
+  <input type="hidden" name="update_response_map" value="1">
+  <table>
+    <tr>
+      <th>ספרה</th>
+      <th>פירוש</th>
+      <th>דרוש חזרה?</th>
+      <th>בעוד כמה שעות</th>
+    </tr>
+    {% for key, value in response_map.items() %}
+    <tr>
+      <td>{{ key }}</td>
+      <td><input type="text" name="label_{{ key }}" value="{{ value.label }}"></td>
+      <td><input type="checkbox" name="callback_{{ key }}" {% if value.callback_required %}checked{% endif %}></td>
+      <td><input type="number" name="hours_{{ key }}" value="{{ value.hours }}"></td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">שמור הגדרות</button>
+</form>
+
+<h2>סטטיסטיקה</h2>
+<p>סה"כ הודעות שנשלחו: {{ total_sent }}</p>
+
+<h2>טבלת שליחות ותגובות</h2>
+<table>
+  <tr>
+    <th>#</th>
+    <th>נשלח למספר</th>
+    <th>תוכן הודעה</th>
+    <th>מתי נשלח</th>
+    <th>תגובה</th>
+    <th>פירוש</th>
+    <th>זמן תגובה</th>
+  </tr>
+  {% for i in range(rows|length) %}
+  <tr>
+    <td>{{ i + 1 }}</td>
+    <td>{{ send_log[i].to if send_log[i] else "" }}</td>
+    <td>{{ send_log[i].message if send_log[i] else "" }}</td>
+    <td>{{ send_log[i].time if send_log[i] else "" }}</td>
+    <td>{{ responses[i].message if responses[i] else "" }}</td>
+    <td>{{ responses[i].label if responses[i] else "" }}</td>
+    <td>{{ responses[i].time if responses[i] else "" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
 </body>
 </html>
