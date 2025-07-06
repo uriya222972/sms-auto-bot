@@ -1,24 +1,50 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <title>שליחת SMS</title>
+    <meta charset="UTF-8">
+    <title>שליחת SMS לפי קובץ</title>
 </head>
 <body>
-  <h1>שליחת SMS</h1>
-  <form method="post">
-    <label>מספר טלפון:</label><br>
-    <input name="phone" required><br><br>
+    <h1>מערכת שליחת SMS</h1>
 
-    <label>תוכן הודעה:</label><br>
-    <textarea name="message" rows="4" cols="50" required></textarea><br><br>
+    <form method="post" enctype="multipart/form-data" action="/upload">
+        <label>בחר קובץ CSV (שורה לכל הודעה):</label><br>
+        <input type="file" name="file" accept=".csv" required>
+        <input type="submit" value="העלה קובץ">
+    </form>
 
-    <button type="submit">שלח</button>
-  </form>
+    <form method="post" action="/reset">
+        <button type="submit">מחק קובץ</button>
+    </form>
 
-  {% if response %}
-    <h3>תשובת Inforu:</h3>
-    <pre>{{ response | tojson(indent=2, ensure_ascii=False) }}</pre>
-  {% endif %}
+    <form action="/download" method="get">
+        <button type="submit">הורד קובץ תגובות</button>
+    </form>
+
+    {% if rows %}
+        <h2 style='color: green;'>קובץ נטען. המערכת מחכה להודעות SMS.</h2>
+    {% endif %}
+
+    <h2>סטטוס הודעות</h2>
+    <table border="1">
+        <tr>
+            <th>#</th>
+            <th>תוכן ההודעה</th>
+            <th>נשלח למספר</th>
+            <th>זמן שליחה</th>
+            <th>תגובה</th>
+            <th>זמן תגובה</th>
+        </tr>
+        {% for row in rows %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row }}</td>
+            <td>{{ send_log.get(loop.index0, {}).get("to", "") }}</td>
+            <td>{{ send_log.get(loop.index0, {}).get("time", "") }}</td>
+            <td>{{ responses.get(loop.index0, {}).get("message", "") }}</td>
+            <td>{{ responses.get(loop.index0, {}).get("time", "") }}</td>
+        </tr>
+        {% endfor %}
+    </table>
 </body>
 </html>
