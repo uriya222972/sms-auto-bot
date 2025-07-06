@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, url_for, send_file, Response
+from flask import Flask, request, redirect, url_for, Response
 import requests
 import csv
 from io import TextIOWrapper, StringIO
@@ -69,6 +69,26 @@ def home():
 
         sender = request.form.get("phone")
         message = request.form.get("message")
+
+        # שליחה לכל מי ששלח הודעה בעבר
+        if request.form.get("send_to_all") == "yes" and message:
+            unique_phones = list(phone_map.keys())
+            headers = {
+                "Content-Type": "application/json; charset=utf-8",
+                "Authorization": AUTH_HEADER
+            }
+            for phone in unique_phones:
+                payload = {
+                    "Sender": SENDER,
+                    "Message": message,
+                    "Recipients": [{"Phone": phone}]
+                }
+                print("➡️ שליחה קבוצתית:", payload)
+                res = requests.post(API_URL, headers=headers, json=payload)
+                print("↩️ תשובת Inforu:", res.status_code, res.text)
+            return redirect(url_for("home"))
+
+        # שליחה לנמען יחיד
         if sender and message:
             headers = {
                 "Content-Type": "application/json; charset=utf-8",
@@ -102,7 +122,13 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent)
+    return {
+        "rows": rows,
+        "responses": responses,
+        "send_log": send_log,
+        "response_map": response_map,
+        "total_sent": total_sent
+    }
 
 @app.route("/upload", methods=["POST"])
 def upload():
