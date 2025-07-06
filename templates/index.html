@@ -2,85 +2,110 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>מערכת SMS בוט</title>
+    <title>ניהול הודעות SMS</title>
     <style>
-        body { font-family: sans-serif; direction: rtl; margin: 2em; background-color: #f9f9f9; }
-        h2 { margin-top: 2em; }
-        table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 2em; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background: #f0f0f0; }
-        input[type="text"], textarea, input[type="number"] {
-            width: 90%; padding: 6px; margin: 4px 0;
+        body {
+            font-family: sans-serif;
+            direction: rtl;
+            max-width: 1200px;
+            margin: auto;
+            padding: 2em;
+            background: #f9f9f9;
         }
-        .response-map input[type="checkbox"] { width: auto; }
-        form { margin-bottom: 2em; background: #fff; padding: 1em; border-radius: 8px; box-shadow: 0 0 5px #ddd; }
-        button { padding: 6px 12px; margin-top: 6px; }
+        h1 { text-align: center; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            background: white;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 0.6em;
+            text-align: center;
+        }
+        th {
+            background: #e0e0e0;
+        }
+        form {
+            margin-top: 2em;
+            padding: 1em;
+            background: white;
+            border: 1px solid #ccc;
+        }
+        label {
+            display: inline-block;
+            width: 8em;
+            margin-left: 1em;
+        }
+        input[type="text"], input[type="number"] {
+            width: 20em;
+        }
     </style>
 </head>
 <body>
-    <h1>מערכת SMS בוט</h1>
+    <h1>מערכת שליחת SMS</h1>
 
-    <form method="post" enctype="multipart/form-data" action="/upload">
-        <label>בחר קובץ CSV עם רשימת הודעות לשליחה:</label>
+    <p>סה"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
         <input type="file" name="file" required onchange="this.form.submit()">
+    </form>
+
+    <form method="post" action="/reset" onsubmit="return confirm('לאפס את כל הנתונים?')">
+        <button type="submit">איפוס נתונים</button>
     </form>
 
     <form method="post">
         <h2>תבנית הודעה</h2>
-        <p>השתמש ב־<code>{next}</code> במקום שבו יופיע המספר הבא מהרשימה.</p>
-        <textarea name="template" rows="3">{{ template }}</textarea><br>
-        <button name="update_template">שמור תבנית</button>
+        <label>תבנית:</label>
+        <input type="text" name="template" value="{{ template }}" style="width: 80%;">
+        <button type="submit" name="update_template">עדכן</button>
     </form>
 
-    <form method="post" class="response-map">
-        <h2>הגדרות לכל ספרה</h2>
-        <table>
-            <tr><th>ספרה</th><th>פירוש</th><th>חזרה?</th><th>בעוד כמה שעות</th></tr>
-            {% for digit, config in response_map.items() %}
+    <form method="post">
+        <h2>הגדרות תגובה לפי ספרה</h2>
+        {% for digit, config in response_map.items() %}
+            <div style="margin-bottom: 0.5em;">
+                <label>ספרה {{ digit }}:</label>
+                <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
+                <label>חזרה?</label>
+                <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
+                <label>בעוד (שעות):</label>
+                <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
+            </div>
+        {% endfor %}
+        <button type="submit" name="update_response_map">שמור הגדרות</button>
+    </form>
+
+    <h2>רשימת שיחות</h2>
+    <table>
+        <thead>
             <tr>
-                <td>{{ digit }}</td>
-                <td><input type="text" name="label_{{ digit }}" value="{{ config.label }}"></td>
-                <td><input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}></td>
-                <td><input type="number" name="hours_{{ digit }}" min="0" value="{{ config.hours }}"></td>
+                <th>מס'</th>
+                <th>הודעה שנשלחה</th>
+                <th>למספר</th>
+                <th>זמן שליחה</th>
+                <th>תגובה</th>
+                <th>פירוש</th>
+                <th>זמן תגובה</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ send_log.get(loop.index0, {}).get("message", row) }}</td>
+                <td>{{ send_log.get(loop.index0, {}).get("to", "") }}</td>
+                <td>{{ send_log.get(loop.index0, {}).get("time", "") }}</td>
+                <td>{{ responses.get(loop.index0, {}).get("message", "") }}</td>
+                <td>{{ responses.get(loop.index0, {}).get("label", "") }}</td>
+                <td>{{ responses.get(loop.index0, {}).get("time", "") }}</td>
             </tr>
             {% endfor %}
-        </table>
-        <button name="update_response_map">שמור הגדרות</button>
-    </form>
-
-    <h2>סך הכול נשלחו: {{ total_sent }}</h2>
-
-    <h2>רשימת הודעות בקובץ</h2>
-    <table>
-        <tr><th>#</th><th>תוכן ההודעה</th></tr>
-        {% for i, row in enumerate(rows) %}
-        <tr><td>{{ i + 1 }}</td><td>{{ row }}</td></tr>
-        {% endfor %}
+        </tbody>
     </table>
 
-    <h2>תגובות שהתקבלו</h2>
-    <table>
-        <tr>
-            <th>#</th><th>הודעה</th><th>נשלח ל</th><th>מתי</th>
-            <th>תגובה</th><th>פירוש</th><th>זמן תגובה</th>
-        </tr>
-        {% for i, row in enumerate(rows) %}
-        <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ send_log.get(i, {}).get('message', row) }}</td>
-            <td>{{ send_log.get(i, {}).get('to', '') }}</td>
-            <td>{{ send_log.get(i, {}).get('time', '') }}</td>
-            <td>{{ responses.get(i, {}).get('message', '') }}</td>
-            <td>{{ responses.get(i, {}).get('label', '') }}</td>
-            <td>{{ responses.get(i, {}).get('time', '') }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-
-    <form method="post" action="/reset" onsubmit="return confirm('אתה בטוח שברצונך לאפס הכל?');">
-        <button>איפוס כללי</button>
-    </form>
-
-    <a href="/download"><button>הורד תגובות כ־CSV</button></a>
+    <p><a href="/download">📥 הורד טבלת תגובות כ־CSV</a></p>
 </body>
 </html>
