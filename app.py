@@ -18,96 +18,59 @@ responses = {}
 send_log = {}
 scheduled_retries = {}
 
-response_map = {
-    "1": {"label": "תרם", "callback_required": False},
-    "2": {"label": "לא תרם", "callback_required": False},
-    "3": {"label": "השיחה נקטעה", "callback_required": True, "hours": 3},
-    "4": {"label": "יבדוק ויחזור", "callback_required": True, "hours": 6},
-    "5": {"label": "לא ענה", "callback_required": True, "hours": 1},
-    "6": {"label": "מספר שגוי", "callback_required": False},
-    "7": {"label": "כפול", "callback_required": False},
-    "8": {"label": "שלח מייל", "callback_required": False},
-    "9": {"label": "אחר", "callback_required": False},
-}
+# ניתן לעדכן response_map דרך טופס
+response_map = {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)}
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries
+    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map
 
     if request.method == "POST":
-        try:
-            print("== POST / התקבל ==")
-            print("Headers:", dict(request.headers))
-            print("Body:", request.get_data(as_text=True))
-
-            raw_xml = request.form.get("IncomingXML")
-            if not raw_xml:
-                print("❌ לא נמצא IncomingXML")
-                return "Missing IncomingXML", 400
-
-            print("📥 קיבלנו XML:")
-            print(raw_xml)
-            root = ET.fromstring(raw_xml)
-            sender = root.findtext("PhoneNumber")
-            message = root.findtext("Message")
-
-            print("📞 Sender:", sender)
-            print("💬 Message:", message)
-
-            last_index = None
-            if sender in phone_map and phone_map[sender]:
-                last_index = phone_map[sender][-1]
-                previous = responses.get(last_index, {}).get("message")
-                if previous != message:
-                    responses[last_index] = {
-                        "message": message,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    }
-
-                    response_info = response_map.get(message.strip())
-                    if response_info and response_info.get("callback_required"):
-                        delay_hours = response_info.get("hours", 0)
-                        scheduled_retries[last_index] = datetime.now() + timedelta(hours=delay_hours)
-
-            now = datetime.now()
-            retry_indices = [i for i, t in scheduled_retries.items() if t <= now and i not in sent_indices]
-
-            if retry_indices:
-                next_index = min(retry_indices)
-                scheduled_retries.pop(next_index, None)
-            else:
-                next_index = 0
-                while next_index < len(rows) and next_index in sent_indices:
-                    next_index += 1
-
-            if next_index < len(rows):
-                row = rows[next_index]
-                headers = {
-                    "Content-Type": "application/json; charset=utf-8",
-                    "Authorization": AUTH_HEADER
+        if "update_response_map" in request.form:
+            for key in response_map:
+                label = request.form.get(f"label_{key}", f"ספרה {key}")
+                callback = request.form.get(f"callback_{key}") == "on"
+                hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
+                response_map[key] = {
+                    "label": label,
+                    "callback_required": callback,
+                    "hours": hours
                 }
-                payload = {
-                    "Sender": SENDER,
-                    "Message": row + "\nהשב ספרה אחת להמשך",
-                    "Recipients": [{"Phone": sender}]
-                }
-                print("➡️ שולח:", payload)
-                res = requests.post(API_URL, headers=headers, json=payload)
-                print("↩️ תשובת Inforu:", res.status_code, res.text)
-                res.raise_for_status()
+            return redirect(url_for("home"))
 
-                sent_indices.add(next_index)
-                send_log[next_index] = {
-                    "to": sender,
-                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "message": row
-                }
-                phone_map.setdefault(sender, []).append(next_index)
+        sender = request.form.get("phone")
+        message = request.form.get("message")
+        if sender and message:
+            headers = {
+                "Content-Type": "application/json; charset=utf-8",
+                "Authorization": AUTH_HEADER
+            }
+            payload = {
+                "Sender": SENDER,
+                "Message": message,
+                "Recipients": [{"Phone": sender}]
+            }
+            print("➡️ שליחה ידנית:", payload)
+            res = requests.post(API_URL, headers=headers, json=payload)
+            print("↩️ תשובת Inforu:", res.status_code, res.text)
+            res.raise_for_status()
 
-            return "OK"
-        except Exception as e:
-            print("❌ שגיאה ב־POST /:", e)
-            return str(e), 400
+            send_log[len(rows)] = {
+                "to": sender,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": message
+            }
+            rows.append(message)
+            sent_indices.add(len(rows) - 1)
+
+            return redirect(url_for("home"))
+
+    now = datetime.now()
+    retry_indices = [i for i, t in scheduled_retries.items() if t <= now and i not in sent_indices]
+    if retry_indices:
+        retry_index = min(retry_indices)
+        scheduled_retries.pop(retry_index)
+        sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent)
