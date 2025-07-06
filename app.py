@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
-API_URL = "                                            "
+API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
@@ -109,7 +109,8 @@ def home():
             print("❌ שגיאה ב־POST /:", e)
             return str(e), 400
 
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map)
+    total_sent = len(sent_indices)
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent)
 
 @app.route("/upload", methods=["POST"])
 def upload():
