@@ -2,49 +2,98 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>שליחת SMS לפי קובץ</title>
+    <title>מערכת שליחת הודעות</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f2f2f2;
+            margin: 0;
+            padding: 2rem;
+            direction: rtl;
+        }
+        h1 {
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            margin-top: 0.5rem;
+        }
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            margin-top: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        .response-map {
+            margin-top: 2rem;
+        }
+        .response-map label {
+            font-weight: normal;
+        }
+        .flex {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        .top-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+    </style>
 </head>
 <body>
-    <h1>מערכת שליחת SMS</h1>
+<div class="container">
+    <h1>מערכת שליחת הודעות סמס</h1>
 
-    <form method="post" enctype="multipart/form-data" action="/upload">
-        <label>בחר קובץ CSV (שורה לכל הודעה):</label><br>
-        <input type="file" name="file" accept=".csv" required>
-        <input type="submit" value="העלה קובץ">
+    <div class="top-actions">
+        <form method="POST" action="/reset">
+            <button type="submit">איפוס מערכת</button>
+        </form>
+        <form method="GET" action="/download">
+            <button type="submit">📥 הורד תגובות</button>
+        </form>
+    </div>
+
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <label>העלה קובץ CSV:</label>
+        <input type="file" name="file" onchange="this.form.submit()" required>
     </form>
 
-    <form method="post" action="/reset">
-        <button type="submit">מחק קובץ</button>
-    </form>
+    <p>📤 סה״כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
 
-    <form action="/download" method="get">
-        <button type="submit">הורד קובץ תגובות</button>
-    </form>
-
-    {% if rows %}
-        <h2 style='color: green;'>קובץ נטען. המערכת מחכה להודעות SMS.</h2>
-    {% endif %}
-
-    <h2>סטטוס הודעות</h2>
-    <table border="1">
-        <tr>
-            <th>#</th>
-            <th>תוכן ההודעה</th>
-            <th>נשלח למספר</th>
-            <th>זמן שליחה</th>
-            <th>תגובה</th>
-            <th>זמן תגובה</th>
-        </tr>
-        {% for row in rows %}
-        <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ row }}</td>
-            <td>{{ send_log.get(loop.index0, {}).get("to", "") }}</td>
-            <td>{{ send_log.get(loop.index0, {}).get("time", "") }}</td>
-            <td>{{ responses.get(loop.index0, {}).get("message", "") }}</td>
-            <td>{{ responses.get(loop.index0, {}).get("time", "") }}</td>
-        </tr>
+    <div class="response-map">
+        <h3>הגדרות תגובה לפי ספרות</h3>
+        {% for key, info in response_map.items() %}
+        <div class="flex">
+            <label>ספרה {{ key }}:</label>
+            <input type="text" value="{{ info.label }}" readonly>
+            {% if info.callback_required %}
+            <small>(דורש חזרה בעוד {{ info.hours }} שעות)</small>
+            {% else %}
+            <small>(ללא חזרה)</small>
+            {% endif %}
+        </div>
         {% endfor %}
-    </table>
+    </div>
+</div>
 </body>
 </html>
