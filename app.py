@@ -24,6 +24,42 @@ response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "
 activation_word = saved.get("activation_word", "התחל")
 filename = saved.get("filename", "")
 
+@app.route("/upload", methods=["POST"])
+def upload():
+    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, filename
+    file = request.files.get("file")
+    if not file:
+        return "לא נבחר קובץ", 400
+
+    try:
+        stream = TextIOWrapper(file.stream, encoding="utf-8")
+        reader = csv.reader(stream)
+        rows = [row[0].strip() for row in reader if row and row[0].strip()]
+        sent_indices = set()
+        phone_map = {}
+        responses = {}
+        send_log = {}
+        scheduled_retries = {}
+        filename = file.filename
+
+        save_data({
+            "rows": rows,
+            "sent_indices": list(sent_indices),
+            "phone_map": phone_map,
+            "responses": responses,
+            "send_log": send_log,
+            "scheduled_retries": scheduled_retries,
+            "custom_template": custom_template,
+            "response_map": response_map,
+            "activation_word": activation_word,
+            "filename": filename
+        })
+
+        return redirect(url_for("home"))
+
+    except Exception as e:
+        return f"שגיאה בקריאת הקובץ: {str(e)}", 500
+
 @app.route("/data")
 def data():
     stats = {r["label"]: 0 for r in response_map.values()}
