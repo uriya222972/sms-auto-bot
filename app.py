@@ -195,5 +195,16 @@ def home():
         scheduled_retries.pop(retry_index)
         sent_indices.discard(retry_index)
 
+    stats = {r["label"]: 0 for r in response_map.values()}
+    for r in responses.values():
+        if "label" in r:
+            stats[r["label"]] = stats.get(r["label"], 0) + 1
+
+    retry_times = {}
+    for i, dt in scheduled_retries.items():
+        delta = dt - now
+        if delta.total_seconds() > 0:
+            retry_times[i] = str(delta).split('.')[0]
+
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename)
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename, stats=stats, retry_times=retry_times)
