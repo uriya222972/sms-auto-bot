@@ -21,6 +21,7 @@ send_log = saved.get("send_log", {})
 scheduled_retries = saved.get("scheduled_retries", {})
 custom_template = saved.get("custom_template", "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!")
 response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)})
+activation_word = saved.get("activation_word", "התחל")
 
 @app.route("/data")
 def data():
@@ -34,12 +35,13 @@ def data():
         "send_log": send_log,
         "response_map": response_map,
         "total_sent": len(sent_indices),
-        "stats": stats
+        "stats": stats,
+        "activation_word": activation_word
     })
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map, custom_template
+    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map, custom_template, activation_word
 
     if request.method == "POST":
         if request.form.get("IncomingXML"):
@@ -49,8 +51,14 @@ def home():
                 sender = root.findtext("PhoneNumber")
                 message = root.findtext("Message")
 
+                if sender not in phone_map and message.strip() != activation_word:
+                    return "Ignored: Activation word not received yet", 200
+
+                if sender not in phone_map:
+                    phone_map[sender] = []
+
                 last_index = None
-                if sender in phone_map and phone_map[sender]:
+                if phone_map[sender]:
                     last_index = phone_map[sender][-1]
                     previous = responses.get(last_index, {}).get("message")
                     if previous != message:
@@ -89,7 +97,7 @@ def home():
                         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "message": personalized_message
                     }
-                    phone_map.setdefault(sender, []).append(next_index)
+                    phone_map[sender].append(next_index)
                     sent_indices.add(next_index)
 
                 save_data({
@@ -100,7 +108,8 @@ def home():
                     "send_log": send_log,
                     "scheduled_retries": scheduled_retries,
                     "custom_template": custom_template,
-                    "response_map": response_map
+                    "response_map": response_map,
+                    "activation_word": activation_word
                 })
 
                 return "OK"
@@ -125,7 +134,8 @@ def home():
                 "send_log": send_log,
                 "scheduled_retries": scheduled_retries,
                 "custom_template": custom_template,
-                "response_map": response_map
+                "response_map": response_map,
+                "activation_word": activation_word
             })
             return redirect(url_for("home"))
 
@@ -139,7 +149,23 @@ def home():
                 "send_log": send_log,
                 "scheduled_retries": scheduled_retries,
                 "custom_template": custom_template,
-                "response_map": response_map
+                "response_map": response_map,
+                "activation_word": activation_word
+            })
+            return redirect(url_for("home"))
+
+        if "update_activation_word" in request.form:
+            activation_word = request.form.get("activation_word", "התחל")
+            save_data({
+                "rows": rows,
+                "sent_indices": list(sent_indices),
+                "phone_map": phone_map,
+                "responses": responses,
+                "send_log": send_log,
+                "scheduled_retries": scheduled_retries,
+                "custom_template": custom_template,
+                "response_map": response_map,
+                "activation_word": activation_word
             })
             return redirect(url_for("home"))
 
@@ -151,7 +177,7 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template)
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word)
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -169,7 +195,8 @@ def upload():
         "send_log": send_log,
         "scheduled_retries": scheduled_retries,
         "custom_template": custom_template,
-        "response_map": response_map
+        "response_map": response_map,
+        "activation_word": activation_word
     })
     return redirect(url_for("home"))
 
@@ -190,7 +217,8 @@ def reset():
         "send_log": send_log,
         "scheduled_retries": scheduled_retries,
         "custom_template": custom_template,
-        "response_map": response_map
+        "response_map": response_map,
+        "activation_word": activation_word
     })
     return redirect(url_for("home"))
 
