@@ -63,6 +63,9 @@ def home():
                 sender = root.findtext("PhoneNumber")
                 message = root.findtext("Message")
 
+                if not activation_word:
+                    return "Activation word is required", 400
+
                 if sender not in phone_map and message.strip() != activation_word:
                     return "Ignored: Activation word not received yet", 200
 
@@ -193,6 +196,4 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename, enumerate=enumerate)
-
-# ... other routes remain unchanged ...
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename)
