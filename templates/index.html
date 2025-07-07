@@ -2,126 +2,172 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>מערכת SMS</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מערכת SMS אוטומטית</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f4f6f9;
-      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(120deg, #e0f7fa, #f1f8e9);
+      color: #333;
       padding: 20px;
       direction: rtl;
     }
+
     h1 {
       text-align: center;
-      color: #333;
+      color: #00796b;
     }
-    section {
-      background: white;
-      padding: 20px;
-      margin: 20px auto;
-      max-width: 900px;
-      border-radius: 12px;
+
+    .section {
+      background: #ffffffcc;
+      border-radius: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
     }
-    label, input, select, textarea {
-      font-size: 1em;
+
+    .section h2 {
+      margin-top: 0;
+      color: #388e3c;
     }
-    input[type="text"], input[type="number"], textarea {
+
+    input[type="text"], input[type="number"], textarea, select {
       width: 100%;
-      padding: 6px;
-      margin-bottom: 10px;
+      padding: 10px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
     }
+
     input[type="file"] {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
     }
+
+    input[type="submit"], button {
+      background-color: #00796b;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    input[type="submit"]:hover, button:hover {
+      background-color: #004d40;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 15px;
     }
+
     th, td {
-      padding: 8px;
       border: 1px solid #ccc;
+      padding: 8px;
       text-align: center;
+      background-color: #f9fbe7;
     }
+
     th {
-      background: #eaeaea;
+      background-color: #aed581;
     }
-    .progress-container {
-      background: #e0e0e0;
-      border-radius: 8px;
-      height: 24px;
-      overflow: hidden;
-      margin-top: 5px;
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
     }
+
+    label {
+      font-weight: bold;
+    }
+
     .progress-bar {
-      background: #4caf50;
+      height: 20px;
+      background: #c8e6c9;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-bar-inner {
       height: 100%;
-      width: 0%;
-      transition: width 0.3s;
-      color: white;
+      background: #388e3c;
       text-align: center;
-      font-weight: bold;
-    }
-    button {
-      background: #4caf50;
       color: white;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    button:hover {
-      background: #45a049;
+      line-height: 20px;
+      transition: width 0.3s;
     }
   </style>
 </head>
 <body>
-  <h1>מערכת SMS אוטומטית</h1>
+  <h1>מערכת SMS בוט</h1>
 
-  <section>
-    <form method="POST" action="/upload" enctype="multipart/form-data">
-      <label>העלה קובץ מספרים (CSV):</label><br>
+  <div class="section">
+    <h2>העלאת קובץ CSV</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv" required>
-      <button type="submit">העלה ושלח</button>
+      <input type="submit" value="העלה קובץ">
     </form>
-  </section>
+  </div>
 
-  <section>
-    <form method="POST">
-      <label>תבנית ההודעה (השתמש ב־<code>{next}</code> להכניס את המספר):</label>
-      <textarea name="template" rows="3">{{ template }}</textarea>
-      <button name="update_template" type="submit">שמור תבנית</button>
+  <div class="section">
+    <h2>הגדרת מילת הפעלה</h2>
+    <form method="post">
+      <input type="hidden" name="update_activation_word">
+      <input type="text" name="activation_word" placeholder="לדוג' התחלה, היי וכו'">
+      <input type="submit" value="שמור">
     </form>
-  </section>
+  </div>
 
-  <section>
-    <form method="POST">
-      <h3>הגדרות לספרות תגובה:</h3>
-      {% for key, value in response_map.items() %}
-        <div style="margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
-          <strong>ספרה {{ key }}:</strong><br>
-          תיאור: <input type="text" name="label_{{ key }}" value="{{ value.label }}">
-          חזרה נדרשת: <input type="checkbox" name="callback_{{ key }}" {% if value.callback_required %}checked{% endif %}>
-          בעוד כמה שעות? <input type="number" name="hours_{{ key }}" value="{{ value.hours }}" min="0">
-        </div>
-      {% endfor %}
-      <button name="update_response_map" type="submit">שמור הגדרות תגובה</button>
+  <div class="section">
+    <h2>התאמה אישית של ההודעה</h2>
+    <form method="post">
+      <input type="hidden" name="update_template">
+      <textarea name="template" rows="3" placeholder="יישר כח! המספר הבא הוא {next}...">{template}</textarea>
+      <input type="submit" value="שמור">
     </form>
-  </section>
+  </div>
 
-  <section>
-    <h3>מספרים שנשלחו: <span id="sentCount">{{ total_sent }}</span> מתוך {{ rows | length }}</h3>
-    <div class="progress-container">
-      <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
+  <div class="section">
+    <h2>הגדרות תגובה לספרות</h2>
+    <form method="post">
+      <input type="hidden" name="update_response_map">
+      <div class="grid">
+        {% for digit, config in response_map.items() %}
+          <div>
+            <label>ספרה {{ digit }}</label>
+            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם / לא ענה">
+            <label>דורש חזרה?</label>
+            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
+            <label>עוד כמה שעות לחזור:</label>
+            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
+          </div>
+        {% endfor %}
+      </div>
+      <input type="submit" value="שמור שינויים">
+    </form>
+  </div>
+
+  <div class="section">
+    <h2>סטטיסטיקה</h2>
+    <p>סה"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
+    <div class="progress-bar">
+      <div class="progress-bar-inner" style="width: {{ total_sent / rows|length * 100 if rows else 0 }}%">{{ total_sent }} / {{ rows|length }}</div>
     </div>
-    <table id="dataTable">
+  </div>
+
+  <div class="section">
+    <h2>טבלת נתונים</h2>
+    <table>
       <thead>
         <tr>
           <th>#</th>
-          <th>הודעה</th>
+          <th>מספר מטרה</th>
+          <th>הודעה שנשלחה</th>
           <th>נשלח למספר</th>
           <th>זמן שליחה</th>
           <th>תגובה</th>
@@ -130,46 +176,29 @@
         </tr>
       </thead>
       <tbody>
+        {% for i in range(rows|length) %}
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ rows[i] }}</td>
+            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+            <td>{{ responses[i].message if responses[i] is defined }}</td>
+            <td>{{ responses[i].label if responses[i] is defined }}</td>
+            <td>{{ responses[i].time if responses[i] is defined }}</td>
+          </tr>
+        {% endfor %}
       </tbody>
     </table>
-  </section>
+  </div>
 
-  <script>
-    async function refreshData() {
-      const res = await fetch("/data");
-      const data = await res.json();
-      const tbody = document.querySelector("#dataTable tbody");
-      const sentCount = document.getElementById("sentCount");
-      const progressBar = document.getElementById("progressBar");
-      tbody.innerHTML = "";
-
-      let total = data.rows.length;
-      let sent = data.total_sent;
-      sentCount.textContent = sent;
-
-      data.rows.forEach((row, i) => {
-        const sentData = data.send_log[i] || {};
-        const resp = data.responses[i] || {};
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${i + 1}</td>
-          <td>${sentData.message || row}</td>
-          <td>${sentData.to || ""}</td>
-          <td>${sentData.time || ""}</td>
-          <td>${resp.message || ""}</td>
-          <td>${resp.label || ""}</td>
-          <td>${resp.time || ""}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      const percent = total ? Math.round((sent / total) * 100) : 0;
-      progressBar.style.width = percent + "%";
-      progressBar.textContent = percent + "%";
-    }
-
-    setInterval(refreshData, 3000);
-    refreshData();
-  </script>
+  <div class="section">
+    <form action="/download">
+      <input type="submit" value="הורד נתונים כ־CSV">
+    </form>
+    <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
+      <input type="submit" value="אפס מערכת">
+    </form>
+  </div>
 </body>
 </html>
