@@ -193,6 +193,6 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename)
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename, enumerate=enumerate)
 
 # ... other routes remain unchanged ...
