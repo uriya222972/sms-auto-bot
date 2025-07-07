@@ -196,4 +196,9 @@ def home():
         sent_indices.discard(retry_index)
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename)
+    stats = {r["label"]: 0 for r in response_map.values()}
+    for r in responses.values():
+        if "label" in r:
+            stats[r["label"]] = stats.get(r["label"], 0) + 1
+
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename, stats=stats)
