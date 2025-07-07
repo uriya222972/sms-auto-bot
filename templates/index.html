@@ -1,111 +1,113 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he">
 <head>
     <meta charset="UTF-8">
-    <title>ניהול הודעות SMS</title>
+    <title>מערכת טלפנים</title>
+    <script>
+        async function refreshData() {
+            const res = await fetch("/data");
+            const data = await res.json();
+
+            const table = document.getElementById("response-table").querySelector("tbody");
+            table.innerHTML = "";
+            data.rows.forEach((row, i) => {
+                const sent = data.send_log[i] || {};
+                const resp = data.responses[i] || {};
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>${row}</td>
+                    <td>${sent.to || ""}</td>
+                    <td>${sent.time || ""}</td>
+                    <td>${sent.message || ""}</td>
+                    <td>${resp.message || ""}</td>
+                    <td>${resp.label || ""}</td>
+                    <td>${resp.time || ""}</td>
+                `;
+                table.appendChild(tr);
+            });
+
+            // update stats
+            document.getElementById("total_sent").innerText = data.total_sent;
+            document.getElementById("progress-bar").style.width = (data.total_sent / data.rows.length * 100) + "%";
+
+            const statsTable = document.getElementById("stats-table").querySelector("tbody");
+            statsTable.innerHTML = "";
+            Object.entries(data.stats).forEach(([label, count]) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `<td>${label}</td><td>${count}</td>`;
+                statsTable.appendChild(tr);
+            });
+        }
+
+        setInterval(refreshData, 5000);
+        window.onload = refreshData;
+    </script>
     <style>
         body {
             font-family: sans-serif;
             direction: rtl;
-            max-width: 1200px;
-            margin: auto;
-            padding: 2em;
-            background: #f9f9f9;
+            margin: 20px;
         }
-        h1 { text-align: center; }
-        table {
+        h1 { margin-bottom: 10px; }
+        .progress-container {
             width: 100%;
+            background: #eee;
+            height: 20px;
+            margin: 5px 0;
+            border-radius: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: green;
+            width: 0%;
+            border-radius: 10px;
+        }
+        table {
             border-collapse: collapse;
-            margin-top: 1em;
-            background: white;
+            width: 100%;
+            margin-top: 10px;
         }
         th, td {
             border: 1px solid #ccc;
-            padding: 0.6em;
-            text-align: center;
+            padding: 6px;
         }
         th {
-            background: #e0e0e0;
-        }
-        form {
-            margin-top: 2em;
-            padding: 1em;
-            background: white;
-            border: 1px solid #ccc;
-        }
-        label {
-            display: inline-block;
-            width: 8em;
-            margin-left: 1em;
-        }
-        input[type="text"], input[type="number"] {
-            width: 20em;
+            background: #f0f0f0;
         }
     </style>
 </head>
 <body>
-    <h1>מערכת שליחת SMS</h1>
+    <h1>מערכת טלפנים</h1>
 
-    <p>סה"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
+    <h3>סה"כ הודעות שנשלחו: <span id="total_sent">0</span></h3>
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
 
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" required onchange="this.form.submit()">
-    </form>
+    <h3>סיכום תגובות לפי פירוש</h3>
+    <table id="stats-table">
+        <thead>
+            <tr><th>פירוש</th><th>מספר תגובות</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-    <form method="post" action="/reset" onsubmit="return confirm('לאפס את כל הנתונים?')">
-        <button type="submit">איפוס נתונים</button>
-    </form>
-
-    <form method="post">
-        <h2>תבנית הודעה</h2>
-        <label>תבנית:</label>
-        <input type="text" name="template" value="{{ template }}" style="width: 80%;">
-        <button type="submit" name="update_template">עדכן</button>
-    </form>
-
-    <form method="post">
-        <h2>הגדרות תגובה לפי ספרה</h2>
-        {% for digit, config in response_map.items() %}
-            <div style="margin-bottom: 0.5em;">
-                <label>ספרה {{ digit }}:</label>
-                <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
-                <label>חזרה?</label>
-                <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-                <label>בעוד (שעות):</label>
-                <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
-            </div>
-        {% endfor %}
-        <button type="submit" name="update_response_map">שמור הגדרות</button>
-    </form>
-
-    <h2>רשימת שיחות</h2>
-    <table>
+    <h3>טבלת הודעות ותגובות</h3>
+    <table id="response-table">
         <thead>
             <tr>
                 <th>מס'</th>
-                <th>הודעה שנשלחה</th>
-                <th>למספר</th>
+                <th>מספר מהרשימה</th>
+                <th>נשלח ל</th>
                 <th>זמן שליחה</th>
+                <th>תוכן ההודעה</th>
                 <th>תגובה</th>
                 <th>פירוש</th>
                 <th>זמן תגובה</th>
             </tr>
         </thead>
-        <tbody>
-            {% for row in rows %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ send_log.get(loop.index0, {}).get("message", row) }}</td>
-                <td>{{ send_log.get(loop.index0, {}).get("to", "") }}</td>
-                <td>{{ send_log.get(loop.index0, {}).get("time", "") }}</td>
-                <td>{{ responses.get(loop.index0, {}).get("message", "") }}</td>
-                <td>{{ responses.get(loop.index0, {}).get("label", "") }}</td>
-                <td>{{ responses.get(loop.index0, {}).get("time", "") }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+        <tbody></tbody>
     </table>
-
-    <p><a href="/download">📥 הורד טבלת תגובות כ־CSV</a></p>
 </body>
 </html>
