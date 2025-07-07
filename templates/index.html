@@ -1,164 +1,72 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>מערכת טלפנים</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f6f8;
-      color: #333;
-      padding: 20px;
-      direction: rtl;
-    }
-    h1 {
-      color: #2c3e50;
-    }
-    .section {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    label {
-      font-weight: bold;
-    }
-    input[type="text"], input[type="file"], textarea {
-      width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      margin-bottom: 12px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    button {
-      background: #3498db;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    button:hover {
-      background: #2980b9;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background: #3498db;
-      color: white;
-    }
-    .progress-container {
-      background-color: #eee;
-      border-radius: 10px;
-      overflow: hidden;
-      margin-bottom: 15px;
-    }
-    .progress-bar {
-      height: 24px;
-      background-color: #27ae60;
-      color: white;
-      text-align: center;
-      line-height: 24px;
-    }
-  </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-4">מערכת הטלפנים</h2>
 
-  <h1>📞 מערכת ניהול טלפנים</h1>
+  <form method="post" enctype="multipart/form-data">
+    <label for="file">בחר קובץ:</label>
+    <input type="file" name="file" id="file" onchange="document.getElementById('filename').textContent = this.files[0]?.name || 'לא נבחר קובץ'">
+    <span id="filename">{{ filename or "לא נבחר קובץ" }}</span>
+    <button class="btn btn-primary btn-sm" formaction="/upload" formmethod="post">העלה</button>
+  </form>
 
-  <div class="section">
-    <form action="/upload" method="post" enctype="multipart/form-data">
-      <label for="file">בחר קובץ:</label>
-      <input type="file" name="file" id="file" required onchange="this.form.submit()">
-      <div id="fileLabel"></div>
-    </form>
-    <script>
-      document.getElementById("file").addEventListener("change", function() {
-        const label = document.getElementById("fileLabel");
-        if (this.files.length) label.textContent = "הקובץ שנבחר: " + this.files[0].name;
-      });
-    </script>
-  </div>
+  <form method="post">
+    <label for="activation_word">מילת הפעלה:</label>
+    <input type="text" id="activation_word" name="activation_word" value="{{ activation_word }}" required>
+    <button class="btn btn-secondary btn-sm" type="submit" name="update_activation_word">שמור</button>
 
-  <div class="section">
-    <form method="post">
-      <label for="activation_word">מילת הפעלה:</label>
-      <input type="text" name="activation_word" id="activation_word" value="{{ activation_word }}">
-      <button type="submit" name="update_activation_word">שמור</button>
-    </form>
-  </div>
+    <label for="template" class="mt-3">תבנית הודעה:</label>
+    <input type="text" id="template" name="template" value="{{ template }}" style="width: 100%;" required>
+    <small class="form-text text-muted">השתמש ב־<code>{next}</code> במקום שבו ייכנס המספר הבא מהרשימה</small>
+    <button class="btn btn-secondary btn-sm mt-1" type="submit" name="update_template">שמור</button>
+  </form>
 
-  <div class="section">
-    <form method="post">
-      <label for="template">טקסט ההודעה (עם {next} במקום מספר):</label>
-      <textarea name="template" id="template" rows="3">{{ template }}</textarea>
-      <button type="submit" name="update_template">שמור</button>
-    </form>
-  </div>
-
-  <div class="section">
-    <form method="post">
-      <h3>התאמת תגובות לפי ספרות:</h3>
-      {% for key, config in response_map.items() %}
-        <div style="margin-bottom: 10px;">
-          <label>ספרה {{ key }}:</label>
-          <input type="text" name="label_{{ key }}" value="{{ config.label }}">
-          <label>
-            <input type="checkbox" name="callback_{{ key }}" {% if config.callback_required %}checked{% endif %}>
-            דרוש חזרה
-          </label>
-          <input type="number" name="hours_{{ key }}" value="{{ config.hours }}" style="width:60px;"> שעות
-        </div>
-      {% endfor %}
-      <button type="submit" name="update_response_map">שמור</button>
-    </form>
-  </div>
-
-  <div class="section">
-    <h3>📊 סטטיסטיקות</h3>
-    <div class="progress-container">
-      <div class="progress-bar" style="width: {{ total_sent / (rows|length + 0.01) * 100 }}%">
-        נשלחו {{ total_sent }} מתוך {{ rows|length }}
-      </div>
-    </div>
-    <table>
+  <form method="post">
+    <h4 class="mt-4">הגדרות תגובות:</h4>
+    <table class="table">
       <thead>
-        <tr>
-          <th>#</th>
-          <th>מספר טלפון</th>
-          <th>הודעה</th>
-          <th>זמן שליחה</th>
-          <th>תגובה</th>
-          <th>פירוש</th>
-          <th>זמן תגובה</th>
-        </tr>
+        <tr><th>ספרה</th><th>פירוש</th><th>שיחה חוזרת?</th><th>שעות</th></tr>
       </thead>
       <tbody>
-        {% for i, row in rows|enumerate %}
+        {% for key, setting in response_map.items() %}
         <tr>
-          <td>{{ i + 1 }}</td>
-          <td>{{ row }}</td>
-          <td>{{ send_log[i].message if i in send_log else '' }}</td>
-          <td>{{ send_log[i].time if i in send_log else '' }}</td>
-          <td>{{ responses[i].message if i in responses else '' }}</td>
-          <td>{{ responses[i].label if i in responses else '' }}</td>
-          <td>{{ responses[i].time if i in responses else '' }}</td>
+          <td>{{ key }}</td>
+          <td><input type="text" name="label_{{ key }}" value="{{ setting.label }}"></td>
+          <td><input type="checkbox" name="callback_{{ key }}" {% if setting.callback_required %}checked{% endif %}></td>
+          <td><input type="number" name="hours_{{ key }}" value="{{ setting.hours }}"></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-  </div>
+    <button class="btn btn-primary" type="submit" name="update_response_map">שמור הגדרות</button>
+  </form>
 
-</body>
-</html>
+  <hr>
+
+  <h4>מספרים ברשימה:</h4>
+  <table class="table table-bordered table-sm">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>מספר</th>
+        <th>נשלח?</th>
+        <th>תגובת טלפן</th>
+        <th>פירוש</th>
+        <th>שעה</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ row }}</td>
+        <td>{% if loop.index0 in send_log %}✔️{% endif %}</td>
+        <td>{{ responses.get(loop.index0, {}).get('message', '') }}</td>
+        <td>{{ responses.get(loop.index0, {}).get('label', '') }}</td>
+        <td>{{ responses.get(loop.index0, {}).get('time', '') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
