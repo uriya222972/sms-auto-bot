@@ -1,113 +1,175 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>מערכת טלפנים</title>
-    <script>
-        async function refreshData() {
-            const res = await fetch("/data");
-            const data = await res.json();
-
-            const table = document.getElementById("response-table").querySelector("tbody");
-            table.innerHTML = "";
-            data.rows.forEach((row, i) => {
-                const sent = data.send_log[i] || {};
-                const resp = data.responses[i] || {};
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${i + 1}</td>
-                    <td>${row}</td>
-                    <td>${sent.to || ""}</td>
-                    <td>${sent.time || ""}</td>
-                    <td>${sent.message || ""}</td>
-                    <td>${resp.message || ""}</td>
-                    <td>${resp.label || ""}</td>
-                    <td>${resp.time || ""}</td>
-                `;
-                table.appendChild(tr);
-            });
-
-            // update stats
-            document.getElementById("total_sent").innerText = data.total_sent;
-            document.getElementById("progress-bar").style.width = (data.total_sent / data.rows.length * 100) + "%";
-
-            const statsTable = document.getElementById("stats-table").querySelector("tbody");
-            statsTable.innerHTML = "";
-            Object.entries(data.stats).forEach(([label, count]) => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${label}</td><td>${count}</td>`;
-                statsTable.appendChild(tr);
-            });
-        }
-
-        setInterval(refreshData, 5000);
-        window.onload = refreshData;
-    </script>
-    <style>
-        body {
-            font-family: sans-serif;
-            direction: rtl;
-            margin: 20px;
-        }
-        h1 { margin-bottom: 10px; }
-        .progress-container {
-            width: 100%;
-            background: #eee;
-            height: 20px;
-            margin: 5px 0;
-            border-radius: 10px;
-        }
-        .progress-bar {
-            height: 100%;
-            background: green;
-            width: 0%;
-            border-radius: 10px;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 10px;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
-        }
-        th {
-            background: #f0f0f0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>מערכת SMS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f6f9;
+      margin: 0;
+      padding: 20px;
+      direction: rtl;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    section {
+      background: white;
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 900px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    label, input, select, textarea {
+      font-size: 1em;
+    }
+    input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 10px;
+    }
+    input[type="file"] {
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background: #eaeaea;
+    }
+    .progress-container {
+      background: #e0e0e0;
+      border-radius: 8px;
+      height: 24px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    .progress-bar {
+      background: #4caf50;
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+    }
+    button {
+      background: #4caf50;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #45a049;
+    }
+  </style>
 </head>
 <body>
-    <h1>מערכת טלפנים</h1>
+  <h1>מערכת SMS אוטומטית</h1>
 
-    <h3>סה"כ הודעות שנשלחו: <span id="total_sent">0</span></h3>
+  <section>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+      <label>העלה קובץ מספרים (CSV):</label><br>
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit">העלה ושלח</button>
+    </form>
+  </section>
+
+  <section>
+    <form method="POST">
+      <label>תבנית ההודעה (השתמש ב־<code>{next}</code> להכניס את המספר):</label>
+      <textarea name="template" rows="3">{{ template }}</textarea>
+      <button name="update_template" type="submit">שמור תבנית</button>
+    </form>
+  </section>
+
+  <section>
+    <form method="POST">
+      <h3>הגדרות לספרות תגובה:</h3>
+      {% for key, value in response_map.items() %}
+        <div style="margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+          <strong>ספרה {{ key }}:</strong><br>
+          תיאור: <input type="text" name="label_{{ key }}" value="{{ value.label }}">
+          חזרה נדרשת: <input type="checkbox" name="callback_{{ key }}" {% if value.callback_required %}checked{% endif %}>
+          בעוד כמה שעות? <input type="number" name="hours_{{ key }}" value="{{ value.hours }}" min="0">
+        </div>
+      {% endfor %}
+      <button name="update_response_map" type="submit">שמור הגדרות תגובה</button>
+    </form>
+  </section>
+
+  <section>
+    <h3>מספרים שנשלחו: <span id="sentCount">{{ total_sent }}</span> מתוך {{ rows | length }}</h3>
     <div class="progress-container">
-        <div class="progress-bar" id="progress-bar"></div>
+      <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
     </div>
-
-    <h3>סיכום תגובות לפי פירוש</h3>
-    <table id="stats-table">
-        <thead>
-            <tr><th>פירוש</th><th>מספר תגובות</th></tr>
-        </thead>
-        <tbody></tbody>
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>הודעה</th>
+          <th>נשלח למספר</th>
+          <th>זמן שליחה</th>
+          <th>תגובה</th>
+          <th>פירוש</th>
+          <th>זמן תגובה</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
     </table>
+  </section>
 
-    <h3>טבלת הודעות ותגובות</h3>
-    <table id="response-table">
-        <thead>
-            <tr>
-                <th>מס'</th>
-                <th>מספר מהרשימה</th>
-                <th>נשלח ל</th>
-                <th>זמן שליחה</th>
-                <th>תוכן ההודעה</th>
-                <th>תגובה</th>
-                <th>פירוש</th>
-                <th>זמן תגובה</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+  <script>
+    async function refreshData() {
+      const res = await fetch("/data");
+      const data = await res.json();
+      const tbody = document.querySelector("#dataTable tbody");
+      const sentCount = document.getElementById("sentCount");
+      const progressBar = document.getElementById("progressBar");
+      tbody.innerHTML = "";
+
+      let total = data.rows.length;
+      let sent = data.total_sent;
+      sentCount.textContent = sent;
+
+      data.rows.forEach((row, i) => {
+        const sentData = data.send_log[i] || {};
+        const resp = data.responses[i] || {};
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${sentData.message || row}</td>
+          <td>${sentData.to || ""}</td>
+          <td>${sentData.time || ""}</td>
+          <td>${resp.message || ""}</td>
+          <td>${resp.label || ""}</td>
+          <td>${resp.time || ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      const percent = total ? Math.round((sent / total) * 100) : 0;
+      progressBar.style.width = percent + "%";
+      progressBar.textContent = percent + "%";
+    }
+
+    setInterval(refreshData, 3000);
+    refreshData();
+  </script>
 </body>
 </html>
