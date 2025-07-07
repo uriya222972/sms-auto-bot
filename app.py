@@ -1,9 +1,10 @@
-from flask import Flask, request, redirect, url_for, render_template, Response
+from flask import Flask, request, redirect, url_for, render_template, Response, jsonify
 import requests
 import csv
 from io import TextIOWrapper, StringIO
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
+from storage import save_data, load_data
 
 app = Flask(__name__)
 
@@ -11,15 +12,30 @@ API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
-rows = []
-sent_indices = set()
-phone_map = {}
-responses = {}
-send_log = {}
-scheduled_retries = {}
+saved = load_data()
+rows = saved.get("rows", [])
+sent_indices = set(saved.get("sent_indices", []))
+phone_map = saved.get("phone_map", {})
+responses = saved.get("responses", {})
+send_log = saved.get("send_log", {})
+scheduled_retries = saved.get("scheduled_retries", {})
+custom_template = saved.get("custom_template", "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!")
+response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)})
 
-response_map = {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)}
-custom_template = "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!"
+@app.route("/data")
+def data():
+    stats = {r["label"]: 0 for r in response_map.values()}
+    for r in responses.values():
+        if "label" in r:
+            stats[r["label"]] = stats.get(r["label"], 0) + 1
+    return jsonify({
+        "rows": rows,
+        "responses": responses,
+        "send_log": send_log,
+        "response_map": response_map,
+        "total_sent": len(sent_indices),
+        "stats": stats
+    })
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -51,7 +67,6 @@ def home():
                                 if last_index is not None:
                                     scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
 
-                # שליחה תגובתית לטלפן בלבד
                 next_index = 0
                 while next_index < len(rows) and next_index in sent_indices:
                     next_index += 1
@@ -77,6 +92,17 @@ def home():
                     phone_map.setdefault(sender, []).append(next_index)
                     sent_indices.add(next_index)
 
+                save_data({
+                    "rows": rows,
+                    "sent_indices": list(sent_indices),
+                    "phone_map": phone_map,
+                    "responses": responses,
+                    "send_log": send_log,
+                    "scheduled_retries": scheduled_retries,
+                    "custom_template": custom_template,
+                    "response_map": response_map
+                })
+
                 return "OK"
             except Exception as e:
                 return str(e), 400
@@ -91,10 +117,30 @@ def home():
                     "callback_required": callback,
                     "hours": hours
                 }
+            save_data({
+                "rows": rows,
+                "sent_indices": list(sent_indices),
+                "phone_map": phone_map,
+                "responses": responses,
+                "send_log": send_log,
+                "scheduled_retries": scheduled_retries,
+                "custom_template": custom_template,
+                "response_map": response_map
+            })
             return redirect(url_for("home"))
 
         if "update_template" in request.form:
             custom_template = request.form.get("template", custom_template)
+            save_data({
+                "rows": rows,
+                "sent_indices": list(sent_indices),
+                "phone_map": phone_map,
+                "responses": responses,
+                "send_log": send_log,
+                "scheduled_retries": scheduled_retries,
+                "custom_template": custom_template,
+                "response_map": response_map
+            })
             return redirect(url_for("home"))
 
     now = datetime.now()
@@ -115,6 +161,16 @@ def upload():
         wrapper = TextIOWrapper(file, encoding='utf-8')
         reader = csv.reader(wrapper)
         rows = [", ".join(r).strip() for r in reader if any(r)]
+    save_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map
+    })
     return redirect(url_for("home"))
 
 @app.route("/reset", methods=["POST"])
@@ -126,6 +182,16 @@ def reset():
     send_log.clear()
     responses.clear()
     scheduled_retries.clear()
+    save_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map
+    })
     return redirect(url_for("home"))
 
 @app.route("/download")
