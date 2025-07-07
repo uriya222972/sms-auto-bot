@@ -2,173 +2,142 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>מערכת SMS אוטומטית</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מערכת טלפנים</title>
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: linear-gradient(120deg, #e0f7fa, #f1f8e9);
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f6f8;
       color: #333;
       padding: 20px;
       direction: rtl;
     }
-
     h1 {
-      text-align: center;
-      color: #00796b;
+      color: #2c3e50;
     }
-
     .section {
-      background: #ffffffcc;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background: white;
+      border-radius: 12px;
       padding: 20px;
       margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-
-    .section h2 {
-      margin-top: 0;
-      color: #388e3c;
+    label {
+      font-weight: bold;
     }
-
-    input[type="text"], input[type="number"], textarea, select {
+    input[type="text"], input[type="file"], textarea {
       width: 100%;
-      padding: 10px;
-      margin-top: 5px;
-      margin-bottom: 15px;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 12px;
       border: 1px solid #ccc;
-      border-radius: 10px;
+      border-radius: 6px;
     }
-
-    input[type="file"] {
-      margin-bottom: 15px;
-    }
-
-    input[type="submit"], button {
-      background-color: #00796b;
+    button {
+      background: #3498db;
       color: white;
-      border: none;
       padding: 10px 20px;
-      border-radius: 12px;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
     }
-
-    input[type="submit"]:hover, button:hover {
-      background-color: #004d40;
+    button:hover {
+      background: #2980b9;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 15px;
     }
-
     th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
+      border: 1px solid #ddd;
+      padding: 10px;
       text-align: center;
-      background-color: #f9fbe7;
     }
-
     th {
-      background-color: #aed581;
+      background: #3498db;
+      color: white;
     }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    label {
-      font-weight: bold;
-    }
-
-    .progress-bar {
-      height: 20px;
-      background: #c8e6c9;
+    .progress-container {
+      background-color: #eee;
       border-radius: 10px;
       overflow: hidden;
-      margin-top: 10px;
+      margin-bottom: 15px;
     }
-
-    .progress-bar-inner {
-      height: 100%;
-      background: #388e3c;
-      text-align: center;
+    .progress-bar {
+      height: 24px;
+      background-color: #27ae60;
       color: white;
-      line-height: 20px;
-      transition: width 0.3s;
+      text-align: center;
+      line-height: 24px;
     }
   </style>
 </head>
 <body>
-  <h1>מערכת SMS בוט</h1>
+
+  <h1>📞 מערכת ניהול טלפנים</h1>
 
   <div class="section">
-    <h2>העלאת קובץ CSV</h2>
     <form action="/upload" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required>
-      <input type="submit" value="העלה קובץ">
+      <label for="file">בחר קובץ:</label>
+      <input type="file" name="file" id="file" required onchange="this.form.submit()">
+      <div id="fileLabel"></div>
+    </form>
+    <script>
+      document.getElementById("file").addEventListener("change", function() {
+        const label = document.getElementById("fileLabel");
+        if (this.files.length) label.textContent = "הקובץ שנבחר: " + this.files[0].name;
+      });
+    </script>
+  </div>
+
+  <div class="section">
+    <form method="post">
+      <label for="activation_word">מילת הפעלה:</label>
+      <input type="text" name="activation_word" id="activation_word" value="{{ activation_word }}">
+      <button type="submit" name="update_activation_word">שמור</button>
     </form>
   </div>
 
   <div class="section">
-    <h2>הגדרת מילת הפעלה</h2>
     <form method="post">
-      <input type="hidden" name="update_activation_word">
-      <input type="text" name="activation_word" placeholder="לדוג' התחלה, היי וכו'">
-      <input type="submit" value="שמור">
+      <label for="template">טקסט ההודעה (עם {next} במקום מספר):</label>
+      <textarea name="template" id="template" rows="3">{{ template }}</textarea>
+      <button type="submit" name="update_template">שמור</button>
     </form>
   </div>
 
   <div class="section">
-    <h2>התאמה אישית של ההודעה</h2>
     <form method="post">
-      <input type="hidden" name="update_template">
-      <textarea name="template" rows="3" placeholder="יישר כח! המספר הבא הוא {next}...">{template}</textarea>
-      <input type="submit" value="שמור">
+      <h3>התאמת תגובות לפי ספרות:</h3>
+      {% for key, config in response_map.items() %}
+        <div style="margin-bottom: 10px;">
+          <label>ספרה {{ key }}:</label>
+          <input type="text" name="label_{{ key }}" value="{{ config.label }}">
+          <label>
+            <input type="checkbox" name="callback_{{ key }}" {% if config.callback_required %}checked{% endif %}>
+            דרוש חזרה
+          </label>
+          <input type="number" name="hours_{{ key }}" value="{{ config.hours }}" style="width:60px;"> שעות
+        </div>
+      {% endfor %}
+      <button type="submit" name="update_response_map">שמור</button>
     </form>
   </div>
 
   <div class="section">
-    <h2>הגדרות תגובה לספרות</h2>
-    <form method="post">
-      <input type="hidden" name="update_response_map">
-      <div class="grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>ספרה {{ digit }}</label>
-            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם / לא ענה">
-            <label>דורש חזרה?</label>
-            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-            <label>עוד כמה שעות לחזור:</label>
-            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
-          </div>
-        {% endfor %}
+    <h3>📊 סטטיסטיקות</h3>
+    <div class="progress-container">
+      <div class="progress-bar" style="width: {{ total_sent / (rows|length + 0.01) * 100 }}%">
+        נשלחו {{ total_sent }} מתוך {{ rows|length }}
       </div>
-      <input type="submit" value="שמור שינויים">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>סטטיסטיקה</h2>
-    <p>סה"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
-    <div class="progress-bar">
-      <div class="progress-bar-inner" style="width: {{ total_sent / rows|length * 100 if rows else 0 }}%">{{ total_sent }} / {{ rows|length }}</div>
     </div>
-  </div>
-
-  <div class="section">
-    <h2>טבלת נתונים</h2>
     <table>
       <thead>
         <tr>
           <th>#</th>
-          <th>מספר מטרה</th>
-          <th>הודעה שנשלחה</th>
-          <th>נשלח למספר</th>
+          <th>מספר טלפון</th>
+          <th>הודעה</th>
           <th>זמן שליחה</th>
           <th>תגובה</th>
           <th>פירוש</th>
@@ -176,29 +145,20 @@
         </tr>
       </thead>
       <tbody>
-        {% for i in range(rows|length) %}
-          <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ rows[i] }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].message if responses[i] is defined }}</td>
-            <td>{{ responses[i].label if responses[i] is defined }}</td>
-            <td>{{ responses[i].time if responses[i] is defined }}</td>
-          </tr>
+        {% for i, row in rows|enumerate %}
+        <tr>
+          <td>{{ i + 1 }}</td>
+          <td>{{ row }}</td>
+          <td>{{ send_log[i].message if i in send_log else '' }}</td>
+          <td>{{ send_log[i].time if i in send_log else '' }}</td>
+          <td>{{ responses[i].message if i in responses else '' }}</td>
+          <td>{{ responses[i].label if i in responses else '' }}</td>
+          <td>{{ responses[i].time if i in responses else '' }}</td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  <div class="section">
-    <form action="/download">
-      <input type="submit" value="הורד נתונים כ־CSV">
-    </form>
-    <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
-      <input type="submit" value="אפס מערכת">
-    </form>
-  </div>
 </body>
 </html>
