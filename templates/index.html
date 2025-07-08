@@ -112,13 +112,16 @@
       <input type="file" name="file" accept=".csv" required>
       <input type="submit" value="העלה קובץ">
     </form>
+    {% if filename %}
+      <p>שם הקובץ שהועלה: <strong>{{ filename }}</strong></p>
+    {% endif %}
   </div>
 
   <div class="section">
     <h2>הגדרת מילת הפעלה</h2>
     <form method="post">
       <input type="hidden" name="update_activation_word">
-      <input type="text" name="activation_word" placeholder="לדוג' התחלה, היי וכו'">
+      <input type="text" name="activation_word" placeholder="לדוג' התחלה, היי וכו'" value="{{ activation_word }}">
       <input type="submit" value="שמור">
     </form>
   </div>
@@ -127,7 +130,7 @@
     <h2>התאמה אישית של ההודעה</h2>
     <form method="post">
       <input type="hidden" name="update_template">
-      <textarea name="template" rows="3" placeholder="יישר כח! המספר הבא הוא {next}...">{template}</textarea>
+      <textarea name="template" rows="3" placeholder="יישר כח! המספר הבא הוא {next}...">{{ template }}</textarea>
       <input type="submit" value="שמור">
     </form>
   </div>
