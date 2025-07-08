@@ -23,6 +23,32 @@ custom_template = saved.get("custom_template", "יישר כח! המספר הבא
 response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)})
 activation_word = saved.get("activation_word", "התחל")
 filename = saved.get("filename", "")
+target_goal = saved.get("target_goal", 100)
+bonus_goal = saved.get("bonus_goal", 0)
+bonus_active = saved.get("bonus_active", False)
+
+@app.route("/update_goals", methods=["POST"])
+def update_goals():
+    global target_goal, bonus_goal, bonus_active
+    target_goal = int(request.form.get("target_goal", 100))
+    bonus_goal = int(request.form.get("bonus_goal", 0))
+    bonus_active = request.form.get("bonus_active") == "on"
+    save_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map,
+        "activation_word": activation_word,
+        "filename": filename,
+        "target_goal": target_goal,
+        "bonus_goal": bonus_goal,
+        "bonus_active": bonus_active
+    })
+    return redirect(url_for("home"))
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -30,7 +56,6 @@ def upload():
     file = request.files.get("file")
     if not file:
         return "לא נבחר קובץ", 400
-
     try:
         stream = TextIOWrapper(file.stream, encoding="utf-8")
         reader = csv.reader(stream)
@@ -41,7 +66,6 @@ def upload():
         send_log = {}
         scheduled_retries = {}
         filename = file.filename
-
         save_data({
             "rows": rows,
             "sent_indices": list(sent_indices),
@@ -52,178 +76,17 @@ def upload():
             "custom_template": custom_template,
             "response_map": response_map,
             "activation_word": activation_word,
-            "filename": filename
+            "filename": filename,
+            "target_goal": target_goal,
+            "bonus_goal": bonus_goal,
+            "bonus_active": bonus_active
         })
-
         return redirect(url_for("home"))
-
     except Exception as e:
         return f"שגיאה בקריאת הקובץ: {str(e)}", 500
 
-@app.route("/data")
-def data():
-    stats = {r["label"]: 0 for r in response_map.values()}
-    for r in responses.values():
-        if "label" in r:
-            stats[r["label"]] = stats.get(r["label"], 0) + 1
-
-    retry_times = {}
-    now = datetime.now()
-    for i, dt in scheduled_retries.items():
-        delta = dt - now
-        if delta.total_seconds() > 0:
-            retry_times[i] = str(delta).split('.')[0]
-
-    return jsonify({
-        "rows": rows,
-        "responses": responses,
-        "send_log": send_log,
-        "response_map": response_map,
-        "total_sent": len(sent_indices),
-        "stats": stats,
-        "activation_word": activation_word,
-        "retry_times": retry_times,
-        "filename": filename,
-        "template": custom_template
-    })
-
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def home():
-    global rows, responses, phone_map, sent_indices, send_log, scheduled_retries, response_map, custom_template, activation_word, filename
-
-    if request.method == "POST":
-        if request.form.get("IncomingXML"):
-            try:
-                raw_xml = request.form.get("IncomingXML")
-                root = ET.fromstring(raw_xml)
-                sender = root.findtext("PhoneNumber")
-                message = root.findtext("Message")
-
-                if not activation_word:
-                    return "Activation word is required", 400
-
-                if sender not in phone_map and message.strip() != activation_word:
-                    return "Ignored: Activation word not received yet", 200
-
-                if sender not in phone_map:
-                    phone_map[sender] = []
-
-                last_index = None
-                if phone_map[sender]:
-                    last_index = phone_map[sender][-1]
-                    previous = responses.get(last_index, {}).get("message")
-                    if previous != message:
-                        label = response_map.get(message, {}).get("label", "")
-                        responses[last_index] = {
-                            "message": message,
-                            "label": label,
-                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-                        if message in response_map:
-                            r = response_map[message]
-                            if r["callback_required"]:
-                                hours = r["hours"]
-                                if last_index is not None:
-                                    scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
-
-                next_index = 0
-                while next_index < len(rows) and next_index in sent_indices:
-                    next_index += 1
-                if next_index < len(rows):
-                    next_message = rows[next_index]
-                    personalized_message = custom_template.replace("{next}", next_message)
-                    headers = {
-                        "Content-Type": "application/json; charset=utf-8",
-                        "Authorization": AUTH_HEADER
-                    }
-                    payload = {
-                        "Sender": SENDER,
-                        "Message": personalized_message,
-                        "Recipients": [{"Phone": sender}]
-                    }
-                    res = requests.post(API_URL, headers=headers, json=payload)
-                    res.raise_for_status()
-                    send_log[next_index] = {
-                        "to": sender,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "message": personalized_message
-                    }
-                    phone_map[sender].append(next_index)
-                    sent_indices.add(next_index)
-
-                save_data({
-                    "rows": rows,
-                    "sent_indices": list(sent_indices),
-                    "phone_map": phone_map,
-                    "responses": responses,
-                    "send_log": send_log,
-                    "scheduled_retries": scheduled_retries,
-                    "custom_template": custom_template,
-                    "response_map": response_map,
-                    "activation_word": activation_word,
-                    "filename": filename
-                })
-
-                return "OK"
-            except Exception as e:
-                return str(e), 400
-
-        if "update_response_map" in request.form:
-            for key in response_map:
-                label = request.form.get(f"label_{key}", f"ספרה {key}")
-                callback = request.form.get(f"callback_{key}") == "on"
-                hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
-                response_map[key] = {
-                    "label": label,
-                    "callback_required": callback,
-                    "hours": hours
-                }
-            save_data({
-                "rows": rows,
-                "sent_indices": list(sent_indices),
-                "phone_map": phone_map,
-                "responses": responses,
-                "send_log": send_log,
-                "scheduled_retries": scheduled_retries,
-                "custom_template": custom_template,
-                "response_map": response_map,
-                "activation_word": activation_word,
-                "filename": filename
-            })
-            return redirect(url_for("home"))
-
-        if "update_template" in request.form:
-            custom_template = request.form.get("template", custom_template)
-            save_data({
-                "rows": rows,
-                "sent_indices": list(sent_indices),
-                "phone_map": phone_map,
-                "responses": responses,
-                "send_log": send_log,
-                "scheduled_retries": scheduled_retries,
-                "custom_template": custom_template,
-                "response_map": response_map,
-                "activation_word": activation_word,
-                "filename": filename
-            })
-            return redirect(url_for("home"))
-
-        if "update_activation_word" in request.form:
-            activation_word = request.form.get("activation_word", "התחל")
-            save_data({
-                "rows": rows,
-                "sent_indices": list(sent_indices),
-                "phone_map": phone_map,
-                "responses": responses,
-                "send_log": send_log,
-                "scheduled_retries": scheduled_retries,
-                "custom_template": custom_template,
-                "response_map": response_map,
-                "activation_word": activation_word,
-                "filename": filename
-            })
-            return redirect(url_for("home"))
-
     now = datetime.now()
     retry_indices = [i for i, t in scheduled_retries.items() if t <= now and i not in sent_indices]
     if retry_indices:
@@ -243,4 +106,17 @@ def home():
             retry_times[i] = str(delta).split('.')[0]
 
     total_sent = len(sent_indices)
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, response_map=response_map, total_sent=total_sent, template=custom_template, activation_word=activation_word, filename=filename, stats=stats, retry_times=retry_times)
+    return render_template("index.html",
+                           rows=rows,
+                           responses=responses,
+                           send_log=send_log,
+                           response_map=response_map,
+                           total_sent=total_sent,
+                           template=custom_template,
+                           activation_word=activation_word,
+                           filename=filename,
+                           stats=stats,
+                           retry_times=retry_times,
+                           target_goal=target_goal,
+                           bonus_goal=bonus_goal,
+                           bonus_active=bonus_active)
