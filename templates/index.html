@@ -75,10 +75,12 @@
       background-color: #aed581;
     }
 
-    .grid {
+    .grid-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: 1fr 2fr 1fr 1fr;
       gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
     }
 
     label {
@@ -91,6 +93,7 @@
       border-radius: 10px;
       overflow: hidden;
       margin-top: 10px;
+      position: relative;
     }
 
     .progress-bar-inner {
@@ -100,6 +103,17 @@
       color: white;
       line-height: 20px;
       transition: width 0.3s;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .bonus-bar-inner {
+      height: 100%;
+      background: #f57c00;
+      transition: width 0.3s;
+      position: absolute;
+      top: 0;
     }
   </style>
 </head>
@@ -136,30 +150,42 @@
   </div>
 
   <div class="section">
+    <h2>הגדרת יעד ושלב בונוס</h2>
+    <form action="/update_goals" method="post">
+      <label>יעד הודעות:</label>
+      <input type="number" name="target_goal" value="{{ target_goal }}" min="1">
+      <label>יעד בונוס:</label>
+      <input type="number" name="bonus_goal" value="{{ bonus_goal }}" min="0">
+      <label><input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}> הפעל שלב בונוס</label>
+      <input type="submit" value="שמור יעד">
+    </form>
+  </div>
+
+  <div class="section">
     <h2>הגדרות תגובה לספרות</h2>
     <form method="post">
       <input type="hidden" name="update_response_map">
-      <div class="grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>ספרה {{ digit }}</label>
-            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם / לא ענה">
-            <label>דורש חזרה?</label>
-            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-            <label>עוד כמה שעות לחזור:</label>
-            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
-          </div>
-        {% endfor %}
-      </div>
+      {% for digit, config in response_map.items() %}
+        <div class="grid-row">
+          <label>ספרה {{ digit }}</label>
+          <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
+          <label>חזרה</label>
+          <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
+          <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" placeholder="שעות">
+        </div>
+      {% endfor %}
       <input type="submit" value="שמור שינויים">
     </form>
   </div>
 
   <div class="section">
     <h2>סטטיסטיקה</h2>
-    <p>סה"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong></p>
+    <p>סה\"כ הודעות שנשלחו: <strong>{{ total_sent }}</strong> מתוך יעד <strong>{{ target_goal }}</strong>{% if bonus_active %} + <strong>{{ bonus_goal }}</strong> בונוס{% endif %}</p>
     <div class="progress-bar">
-      <div class="progress-bar-inner" style="width: {{ total_sent / rows|length * 100 if rows else 0 }}%">{{ total_sent }} / {{ rows|length }}</div>
+      <div class="progress-bar-inner" style="width: {{ (total_sent / target_goal * 100) if target_goal else 0 }}%">{{ total_sent }} / {{ target_goal }}</div>
+      {% if bonus_active %}
+        <div class="bonus-bar-inner" style="width: {{ (total_sent / (target_goal + bonus_goal) * 100) if (target_goal + bonus_goal) else 0 }}%"></div>
+      {% endif %}
     </div>
   </div>
 
@@ -170,11 +196,9 @@
         <tr>
           <th>#</th>
           <th>מספר מטרה</th>
-          <th>הודעה שנשלחה</th>
           <th>נשלח למספר</th>
           <th>זמן שליחה</th>
-          <th>תגובה</th>
-          <th>פירוש</th>
+          <th>פירוש תגובה</th>
           <th>זמן תגובה</th>
         </tr>
       </thead>
@@ -183,10 +207,8 @@
           <tr>
             <td>{{ i + 1 }}</td>
             <td>{{ rows[i] }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
             <td>{{ send_log[i].to if send_log[i] is defined }}</td>
             <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].message if responses[i] is defined }}</td>
             <td>{{ responses[i].label if responses[i] is defined }}</td>
             <td>{{ responses[i].time if responses[i] is defined }}</td>
           </tr>
