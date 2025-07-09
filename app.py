@@ -41,21 +41,7 @@ def upload():
         send_log.clear()
         scheduled_retries.clear()
         filename = file.filename
-        save_data({
-            "rows": rows,
-            "sent_indices": list(sent_indices),
-            "phone_map": phone_map,
-            "responses": responses,
-            "send_log": send_log,
-            "scheduled_retries": scheduled_retries,
-            "custom_template": custom_template,
-            "response_map": response_map,
-            "activation_word": activation_word,
-            "filename": filename,
-            "target_goal": target_goal,
-            "bonus_goal": bonus_goal,
-            "bonus_active": bonus_active
-        })
+        save_all()
         return redirect(url_for("home"))
     return "Invalid file", 400
 
@@ -69,20 +55,22 @@ def telephony():
 
     if request.method == "POST":
         if "mark_manual" in request.form:
-            manual_input = request.form.get("manual_response", "").strip()
-            parts = manual_input.split()
-            if len(parts) == 2:
-                phone, digit = parts
-                label = response_map.get(digit, {}).get("label", "")
-                for idx, log in send_log.items():
-                    if log.get("to") == phone:
-                        responses[idx] = {
-                            "message": digit,
-                            "label": label,
-                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-                        message = f"עודכן: {phone} ← {label}"
-                        save_all()
+            phone = request.form.get("manual_number", "").strip()
+            digit = request.form.get("manual_digit", "").strip()
+            label = response_map.get(digit, {}).get("label", "")
+            for idx, log in send_log.items():
+                if log.get("to") == phone:
+                    responses[idx] = {
+                        "message": digit,
+                        "label": label,
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    message = f"עודכן: {phone} ← {label}"
+                    save_all()
+                    break
+            else:
+                message = "לא נמצא מספר כזה ביומן השליחות."
+
         elif "telephony_submit" in request.form:
             selected_digit = request.form.get("digit")
             current_index = int(request.form.get("current_index"))
@@ -109,9 +97,33 @@ def telephony():
                            response_map=response_map,
                            message=message)
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
-    # אפשרות תצוגה ראשית או שליחת נתונים
+    global activation_word, custom_template, response_map
+
+    if request.method == "POST":
+        if "update_activation_word" in request.form:
+            activation_word = request.form.get("activation_word", activation_word)
+        if "update_template" in request.form:
+            custom_template = request.form.get("template", custom_template)
+        if "update_response_map" in request.form:
+            for key in response_map:
+                label = request.form.get(f"label_{key}", f"הגדרה {key}")
+                callback = request.form.get(f"callback_{key}") == "on"
+                hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
+                response_map[key] = {
+                    "label": label,
+                    "callback_required": callback,
+                    "hours": hours
+                }
+        save_all()
+        return redirect(url_for("home"))
+
+    stats = {r["label"]: 0 for r in response_map.values()}
+    for r in responses.values():
+        if "label" in r:
+            stats[r["label"]] = stats.get(r["label"], 0) + 1
+
     return render_template("index.html",
                            rows=rows,
                            responses=responses,
@@ -121,11 +133,73 @@ def home():
                            template=custom_template,
                            activation_word=activation_word,
                            filename=filename,
-                           stats={r["label"]: list(responses.values()).count(r) for r in response_map.values()},
+                           stats=stats,
                            retry_times={},
                            target_goal=target_goal,
                            bonus_goal=bonus_goal,
                            bonus_active=bonus_active)
+
+@app.route("/sms", methods=["POST"])
+def sms():
+    global phone_map, responses, send_log, scheduled_retries, sent_indices
+    try:
+        raw_xml = request.form.get("IncomingXML")
+        root = ET.fromstring(raw_xml)
+        sender = root.findtext("PhoneNumber")
+        message = root.findtext("Message")
+
+        if not sender or not message:
+            return "Missing data", 400
+
+        message = message.strip()
+
+        if not activation_word:
+            return "Missing activation word", 400
+
+        if sender not in phone_map and message != activation_word:
+            return "Ignored", 200
+
+        if sender not in phone_map:
+            phone_map[sender] = []
+
+        last_index = None
+        if phone_map[sender]:
+            last_index = phone_map[sender][-1]
+            previous = responses.get(last_index, {}).get("message")
+            if previous != message:
+                label = response_map.get(message, {}).get("label", "")
+                responses[last_index] = {
+                    "message": message,
+                    "label": label,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                if message in response_map:
+                    r = response_map[message]
+                    if r["callback_required"] and last_index is not None:
+                        scheduled_retries[last_index] = datetime.now() + timedelta(hours=r["hours"])
+
+        next_index = 0
+        while next_index < len(rows) and next_index in sent_indices:
+            next_index += 1
+        if next_index < len(rows):
+            next_message = rows[next_index]
+            personalized = custom_template.replace("{next}", next_message)
+            headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
+            payload = {"Sender": SENDER, "Message": personalized, "Recipients": [{"Phone": sender}]}
+            res = requests.post(API_URL, headers=headers, json=payload)
+            res.raise_for_status()
+            send_log[next_index] = {
+                "to": sender,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": personalized
+            }
+            phone_map[sender].append(next_index)
+            sent_indices.add(next_index)
+
+        save_all()
+        return "OK"
+    except Exception as e:
+        return str(e), 400
 
 def save_all():
     save_data({
