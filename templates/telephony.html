@@ -11,7 +11,10 @@
       padding: 20px;
       direction: rtl;
     }
-    h1 { color: #2e7d32; }
+    h1 {
+      color: #2e7d32;
+      text-align: center;
+    }
     .box {
       background: white;
       padding: 20px;
@@ -36,6 +39,7 @@
       margin: 8px 0;
       border-radius: 10px;
       border: 1px solid #ccc;
+      box-sizing: border-box;
     }
     input[type="submit"] {
       background: #388e3c;
@@ -54,6 +58,9 @@
       text-align: center;
       color: #004d40;
       font-weight: bold;
+    }
+    hr {
+      margin: 30px 0;
     }
   </style>
 </head>
@@ -87,8 +94,14 @@
 
     <form method="post">
       <h3>עדכון תגובה ידני</h3>
-      <p>הזן מספר טלפון ורווח ואז ספרה (למשל: 0501234567 3)</p>
-      <input type="text" name="manual_response" placeholder="0501234567 3">
+      <label for="manual_number">מספר טלפון:</label>
+      <input type="text" name="manual_number" placeholder="0501234567" required>
+      <label for="manual_digit">בחר תגובה:</label>
+      <select name="manual_digit" required>
+        {% for digit, config in response_map.items() %}
+          <option value="{{ digit }}">{{ digit }} - {{ config.label }}</option>
+        {% endfor %}
+      </select>
       <input type="submit" name="mark_manual" value="עדכן תגובה">
     </form>
   </div>
