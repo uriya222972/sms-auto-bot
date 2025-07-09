@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ממשק טלפנים</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      direction: rtl;
+    }
+    h1 { color: #2e7d32; }
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin: auto;
+    }
+    .number-box {
+      font-size: 28px;
+      font-weight: bold;
+      color: #1565c0;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    form {
+      margin-top: 20px;
+    }
+    select, input[type="text"], input[type="submit"] {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    input[type="submit"] {
+      background: #388e3c;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    input[type="submit"]:hover {
+      background: #2e7d32;
+    }
+    .message {
+      background: #e0f2f1;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 10px;
+      text-align: center;
+      color: #004d40;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>ממשק טלפנים</h1>
+
+    {% if message %}
+      <div class="message">{{ message }}</div>
+    {% endif %}
+
+    {% if number %}
+      <div class="number-box">
+        המספר הבא: {{ number }}
+      </div>
+      <form method="post">
+        <input type="hidden" name="current_index" value="{{ index }}">
+        <label for="digit">בחר תגובה:</label>
+        <select name="digit" required>
+          {% for digit, config in response_map.items() %}
+            <option value="{{ digit }}">{{ digit }} - {{ config.label }}</option>
+          {% endfor %}
+        </select>
+        <input type="submit" name="telephony_submit" value="שמור והמשך">
+      </form>
+    {% else %}
+      <p style="text-align:center;">אין עוד מספרים ברשימה</p>
+    {% endif %}
+
+    <hr>
+
+    <form method="post">
+      <h3>עדכון תגובה ידני</h3>
+      <p>הזן מספר טלפון ורווח ואז ספרה (למשל: 0501234567 3)</p>
+      <input type="text" name="manual_response" placeholder="0501234567 3">
+      <input type="submit" name="mark_manual" value="עדכן תגובה">
+    </form>
+  </div>
+</body>
+</html>
