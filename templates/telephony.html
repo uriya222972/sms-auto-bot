@@ -6,104 +6,133 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f1f8e9;
+      padding: 30px;
       direction: rtl;
+      color: #333;
     }
-    h1 {
-      color: #2e7d32;
-      text-align: center;
-    }
-    .box {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    .container {
       max-width: 600px;
       margin: auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    .number-box {
-      font-size: 28px;
-      font-weight: bold;
-      color: #1565c0;
+    h2 {
+      color: #388e3c;
       margin-bottom: 20px;
-      text-align: center;
     }
-    form {
-      margin-top: 20px;
+    label {
+      font-weight: bold;
     }
-    select, input[type="text"], input[type="submit"] {
+    input[type="text"], select {
       width: 100%;
       padding: 10px;
-      margin: 8px 0;
+      margin-top: 8px;
+      margin-bottom: 15px;
       border-radius: 10px;
       border: 1px solid #ccc;
-      box-sizing: border-box;
     }
-    input[type="submit"] {
-      background: #388e3c;
+    button {
+      background-color: #388e3c;
       color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 12px;
       font-weight: bold;
       cursor: pointer;
+      width: 100%;
     }
-    input[type="submit"]:hover {
-      background: #2e7d32;
+    button:hover {
+      background-color: #2e7d32;
     }
-    .message {
+    .message-box {
       background: #e0f2f1;
       padding: 10px;
-      margin-top: 10px;
       border-radius: 10px;
+      margin-bottom: 15px;
       text-align: center;
-      color: #004d40;
-      font-weight: bold;
-    }
-    hr {
-      margin: 30px 0;
+      font-size: 18px;
     }
   </style>
+  <script>
+    let currentName = "";
+    function saveName() {
+      const name = document.getElementById("nameInput").value.trim();
+      if (!name) {
+        alert("נא להזין שם");
+        return;
+      }
+      localStorage.setItem("callerName", name);
+      document.getElementById("nameSection").style.display = "none";
+      document.getElementById("mainSection").style.display = "block";
+      document.getElementById("displayName").innerText = name;
+      loadNext();
+    }
+
+    function loadNext() {
+      fetch("/telephony/next?name=" + encodeURIComponent(localStorage.getItem("callerName")))
+        .then(res => res.json())
+        .then(data => {
+          if (data.next) {
+            document.getElementById("nextNumber").innerText = data.next;
+            document.getElementById("status").innerText = "";
+            document.getElementById("responseSelect").selectedIndex = 0;
+          } else {
+            document.getElementById("nextNumber").innerText = "אין עוד מספרים ברשימה.";
+            document.getElementById("responseSelect").style.display = "none";
+            document.getElementById("submitResponse").style.display = "none";
+          }
+        });
+    }
+
+    function submitResponse() {
+      const label = document.getElementById("responseSelect").value;
+      if (!label) {
+        alert("יש לבחור תגובה");
+        return;
+      }
+      fetch("/telephony/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: localStorage.getItem("callerName"),
+          response: label
+        })
+      }).then(() => {
+        loadNext();
+      });
+    }
+  </script>
 </head>
 <body>
-  <div class="box">
-    <h1>ממשק טלפנים</h1>
+  <div class="container">
+    <div id="nameSection">
+      <h2>הכנס את שמך כדי להתחיל</h2>
+      <input type="text" id="nameInput" placeholder="שם טלפן">
+      <button onclick="saveName()">התחל</button>
+    </div>
 
-    {% if message %}
-      <div class="message">{{ message }}</div>
-    {% endif %}
-
-    {% if number %}
-      <div class="number-box">
-        המספר הבא: {{ number }}
+    <div id="mainSection" style="display: none;">
+      <h2>שלום <span id="displayName"></span> 👋</h2>
+      <div class="message-box">
+        המספר הבא להתקשרות: <strong id="nextNumber">...</strong>
       </div>
-      <form method="post">
-        <input type="hidden" name="current_index" value="{{ index }}">
-        <label for="digit">בחר תגובה:</label>
-        <select name="digit" required>
-          {% for digit, config in response_map.items() %}
-            <option value="{{ digit }}">{{ digit }} - {{ config.label }}</option>
-          {% endfor %}
-        </select>
-        <input type="submit" name="telephony_submit" value="שמור והמשך">
-      </form>
-    {% else %}
-      <p style="text-align:center;">אין עוד מספרים ברשימה</p>
-    {% endif %}
 
-    <hr>
-
-    <form method="post">
-      <h3>עדכון תגובה ידני</h3>
-      <label for="manual_number">מספר טלפון:</label>
-      <input type="text" name="manual_number" placeholder="0501234567" required>
-      <label for="manual_digit">בחר תגובה:</label>
-      <select name="manual_digit" required>
+      <label for="responseSelect">בחר תגובה:</label>
+      <select id="responseSelect">
+        <option value="">-- בחר --</option>
         {% for digit, config in response_map.items() %}
-          <option value="{{ digit }}">{{ digit }} - {{ config.label }}</option>
+          <option value="{{ digit }}">{{ config.label }}</option>
         {% endfor %}
       </select>
-      <input type="submit" name="mark_manual" value="עדכן תגובה">
-    </form>
+
+      <button id="submitResponse" onclick="submitResponse()">עדכן תגובה והבא מספר חדש</button>
+
+      <div id="status"></div>
+    </div>
   </div>
 </body>
 </html>
