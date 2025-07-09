@@ -33,104 +33,59 @@ def update_goals():
     target_goal = int(request.form.get("target_goal", 100))
     bonus_goal = int(request.form.get("bonus_goal", 0))
     bonus_active = request.form.get("bonus_active") == "on"
-    save_data({
-        "rows": rows,
-        "sent_indices": list(sent_indices),
-        "phone_map": phone_map,
-        "responses": responses,
-        "send_log": send_log,
-        "scheduled_retries": scheduled_retries,
-        "custom_template": custom_template,
-        "response_map": response_map,
-        "activation_word": activation_word,
-        "filename": filename,
-        "target_goal": target_goal,
-        "bonus_goal": bonus_goal,
-        "bonus_active": bonus_active
-    })
+    save_all()
     return redirect(url_for("home"))
 
-@app.route("/upload", methods=["POST"])
-def upload():
-    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, filename
-    file = request.files.get("file")
-    if not file:
-        return "לא נבחר קובץ", 400
+@app.route("/mark_response", methods=["POST"])
+def mark_response():
+    global responses
     try:
-        stream = TextIOWrapper(file.stream, encoding="utf-8")
-        reader = csv.reader(stream)
-        rows = [row[0].strip() for row in reader if row and row[0].strip()]
-        sent_indices = set()
-        phone_map = {}
-        responses = {}
-        send_log = {}
-        scheduled_retries = {}
-        filename = file.filename
-        save_data({
-            "rows": rows,
-            "sent_indices": list(sent_indices),
-            "phone_map": phone_map,
-            "responses": responses,
-            "send_log": send_log,
-            "scheduled_retries": scheduled_retries,
-            "custom_template": custom_template,
-            "response_map": response_map,
-            "activation_word": activation_word,
-            "filename": filename,
-            "target_goal": target_goal,
-            "bonus_goal": bonus_goal,
-            "bonus_active": bonus_active
-        })
-        return redirect(url_for("home"))
+        text = request.form.get("message", "").strip()
+        if not text:
+            return "Missing message", 400
+
+        parts = text.split()
+        if len(parts) != 2:
+            return "Invalid format. Use: phone_number response_digit", 400
+
+        phone, digit = parts
+        label = response_map.get(digit, {}).get("label", "")
+        if not label:
+            return f"No label found for digit {digit}", 400
+
+        for idx, log in send_log.items():
+            if log.get("to") == phone:
+                responses[idx] = {
+                    "message": digit,
+                    "label": label,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+        save_all()
+        return "OK"
     except Exception as e:
-        return f"שגיאה בקריאת הקובץ: {str(e)}", 500
+        return str(e), 500
 
-@app.route("/reset", methods=["POST"])
-def reset():
-    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, filename
-    rows = []
-    sent_indices = set()
-    phone_map = {}
-    responses = {}
-    send_log = {}
-    scheduled_retries = {}
-    filename = ""
-    save_data({
-        "rows": rows,
-        "sent_indices": list(sent_indices),
-        "phone_map": phone_map,
-        "responses": responses,
-        "send_log": send_log,
-        "scheduled_retries": scheduled_retries,
-        "custom_template": custom_template,
-        "response_map": response_map,
-        "activation_word": activation_word,
-        "filename": filename,
-        "target_goal": target_goal,
-        "bonus_goal": bonus_goal,
-        "bonus_active": bonus_active
-    })
-    return redirect(url_for("home"))
-
-@app.route("/download")
-def download():
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Index", "Target Number", "To", "Send Time", "Response Label", "Response Time"])
-    for i in range(len(rows)):
-        row = [
-            i + 1,
-            rows[i],
-            send_log.get(i, {}).get("to", ""),
-            send_log.get(i, {}).get("time", ""),
-            responses.get(i, {}).get("label", ""),
-            responses.get(i, {}).get("time", "")
-        ]
-        writer.writerow(row)
-    return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition": "attachment;filename=data.csv"})
-
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
+    global custom_template, activation_word, response_map
+    if request.method == "POST":
+        if "update_template" in request.form:
+            custom_template = request.form.get("template", custom_template)
+        elif "update_activation_word" in request.form:
+            activation_word = request.form.get("activation_word", activation_word)
+        elif "update_response_map" in request.form:
+            for key in response_map:
+                label = request.form.get(f"label_{key}", f"הגדרה {key}")
+                callback = request.form.get(f"callback_{key}") == "on"
+                hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
+                response_map[key] = {
+                    "label": label,
+                    "callback_required": callback,
+                    "hours": hours
+                }
+        save_all()
+        return redirect(url_for("home"))
+
     now = datetime.now()
     retry_indices = [i for i, t in scheduled_retries.items() if t <= now and i not in sent_indices]
     if retry_indices:
@@ -164,3 +119,88 @@ def home():
                            target_goal=target_goal,
                            bonus_goal=bonus_goal,
                            bonus_active=bonus_active)
+
+@app.route("/incoming", methods=["POST"])
+def incoming():
+    try:
+        raw_xml = request.form.get("IncomingXML")
+        if not raw_xml:
+            return "No XML received", 400
+
+        root = ET.fromstring(raw_xml)
+        sender = root.findtext("PhoneNumber")
+        message = root.findtext("Message")
+
+        if not activation_word:
+            return "Activation word is required", 400
+
+        if sender not in phone_map and message.strip() != activation_word:
+            return "Ignored: Activation word not received yet", 200
+
+        if sender not in phone_map:
+            phone_map[sender] = []
+
+        last_index = None
+        if phone_map[sender]:
+            last_index = phone_map[sender][-1]
+            previous = responses.get(last_index, {}).get("message")
+            if previous != message:
+                label = response_map.get(message, {}).get("label", "")
+                responses[last_index] = {
+                    "message": message,
+                    "label": label,
+                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                if message in response_map:
+                    r = response_map[message]
+                    if r["callback_required"]:
+                        hours = r["hours"]
+                        if last_index is not None:
+                            scheduled_retries[last_index] = datetime.now() + timedelta(hours=hours)
+
+        next_index = 0
+        while next_index < len(rows) and next_index in sent_indices:
+            next_index += 1
+        if next_index < len(rows):
+            next_message = rows[next_index]
+            personalized_message = custom_template.replace("{next}", next_message)
+            headers = {
+                "Content-Type": "application/json; charset=utf-8",
+                "Authorization": AUTH_HEADER
+            }
+            payload = {
+                "Sender": SENDER,
+                "Message": personalized_message,
+                "Recipients": [{"Phone": sender}]
+            }
+            res = requests.post(API_URL, headers=headers, json=payload)
+            res.raise_for_status()
+            send_log[next_index] = {
+                "to": sender,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": personalized_message
+            }
+            phone_map[sender].append(next_index)
+            sent_indices.add(next_index)
+
+        save_all()
+        return "OK"
+    except Exception as e:
+        return str(e), 400
+
+def save_all():
+    save_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map,
+        "activation_word": activation_word,
+        "filename": filename,
+        "target_goal": target_goal,
+        "bonus_goal": bonus_goal,
+        "bonus_active": bonus_active
+    })
