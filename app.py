@@ -5,6 +5,7 @@ from io import TextIOWrapper, StringIO
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 from storage import save_data, load_data
+import random
 
 app = Flask(__name__)
 
@@ -20,7 +21,7 @@ responses = saved.get("responses", {})
 send_log = saved.get("send_log", {})
 scheduled_retries = saved.get("scheduled_retries", {})
 custom_template = saved.get("custom_template", "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!")
-response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0} for i in range(1, 10)})
+response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)})
 activation_word = saved.get("activation_word", "התחל")
 filename = saved.get("filename", "")
 target_goal = saved.get("target_goal", 100)
@@ -84,10 +85,13 @@ def home():
                 label = request.form.get(f"label_{key}", f"הגדרה {key}")
                 callback = request.form.get(f"callback_{key}") == "on"
                 hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
+                followups = request.form.get(f"followups_{key}", "").split("\n")
+                followups = [line.strip() for line in followups if line.strip()]
                 response_map[key] = {
                     "label": label,
                     "callback_required": callback,
-                    "hours": hours
+                    "hours": hours,
+                    "followups": followups
                 }
         save_all()
         return redirect(url_for("home"))
@@ -159,6 +163,11 @@ def sms():
                     r = response_map[message]
                     if r["callback_required"] and last_index is not None:
                         scheduled_retries[last_index] = datetime.now() + timedelta(hours=r["hours"])
+                    if r.get("followups"):
+                        followup_msg = random.choice(r["followups"]).replace("{next}", rows[last_index])
+                        headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
+                        payload = {"Sender": SENDER, "Message": followup_msg, "Recipients": [{"Phone": sender}]}
+                        requests.post(API_URL, headers=headers, json=payload)
 
         return send_next(sender)
     except Exception as e:
@@ -177,6 +186,7 @@ def send_next(sender):
         res.raise_for_status()
         send_log[next_index] = {
             "to": name_map.get(sender, sender),
+            "phone": sender,
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "message": personalized
         }
