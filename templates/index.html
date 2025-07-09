@@ -12,12 +12,7 @@
       padding: 20px;
       direction: rtl;
     }
-
-    h1 {
-      text-align: center;
-      color: #00796b;
-    }
-
+    h1 { text-align: center; color: #00796b; }
     .section {
       background: #ffffffcc;
       border-radius: 16px;
@@ -25,109 +20,66 @@
       padding: 20px;
       margin-bottom: 20px;
     }
-
-    .section h2 {
-      margin-top: 0;
-      color: #388e3c;
-    }
-
     input[type="text"], input[type="number"], textarea, select {
-      width: 100%;
-      padding: 6px;
-      margin-top: 5px;
-      margin-bottom: 8px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      font-size: 0.85em;
+      width: 100%; padding: 10px; margin: 5px 0 10px;
+      border: 1px solid #ccc; border-radius: 10px;
     }
-
-    input[type="file"] {
-      margin-bottom: 10px;
-    }
-
     input[type="submit"], button {
-      background-color: #00796b;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 0.9em;
+      background-color: #00796b; color: white;
+      border: none; padding: 10px 20px;
+      border-radius: 12px; cursor: pointer; font-weight: bold;
     }
-
     input[type="submit"]:hover, button:hover {
       background-color: #004d40;
     }
-
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
+      width: 100%; border-collapse: collapse; margin-top: 15px;
     }
-
     th, td {
       border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
+      padding: 8px; text-align: center;
       background-color: #f9fbe7;
-      font-size: 0.85em;
     }
-
-    th {
-      background-color: #aed581;
-    }
-
-    .grid-row {
+    th { background-color: #aed581; }
+    .grid {
       display: grid;
-      grid-template-columns: 0.5fr 2fr 0.8fr 1fr;
-      gap: 6px;
-      align-items: center;
-      margin-bottom: 6px;
-      font-size: 0.85em;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
     }
-
-    label {
-      font-weight: bold;
-      font-size: 0.9em;
-    }
-
     .progress-bar {
-      height: 28px;
-      background: #dcedc8;
-      border-radius: 14px;
-      overflow: hidden;
-      margin-top: 10px;
-      position: relative;
-      border: 1px solid #c5e1a5;
+      height: 20px; background: #e0e0e0;
+      border-radius: 10px; overflow: hidden;
+      margin-top: 10px; position: relative;
     }
-
     .progress-bar-inner {
       height: 100%;
-      background: linear-gradient(to right, #66bb6a, #43a047);
-      text-align: center;
-      color: white;
-      line-height: 28px;
-      transition: width 0.4s ease;
-      position: absolute;
-      left: 0;
-      top: 0;
+      background: #388e3c;
+      text-align: center; color: white;
+      line-height: 20px;
+      transition: width 0.3s;
+      z-index: 2; position: relative;
     }
-
-    .bonus-bar-inner {
-      height: 100%;
-      background: linear-gradient(to right, #ffa726, #fb8c00);
-      transition: width 0.4s ease;
-      position: absolute;
-      top: 0;
+    .bonus-bar {
+      position: absolute; height: 100%;
+      background: #81d4fa; top: 0; left: 0;
       z-index: 1;
     }
-
-    .actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
+    .stat-box {
+      flex: 1 1 120px;
+      background: #fce4ec;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .stat-box .label {
+      font-size: 18px;
+      font-weight: bold;
+      color: #ad1457;
+    }
+    .stat-box .count {
+      font-size: 24px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -140,39 +92,36 @@
       <input type="file" name="file" accept=".csv" required>
       <input type="submit" value="העלה קובץ">
     </form>
-    {% if filename %}
-      <p>שם הקובץ שהועלה: <strong>{{ filename }}</strong></p>
-    {% endif %}
+    {% if filename %}<p><strong>שם קובץ:</strong> {{ filename }}</p>{% endif %}
   </div>
 
   <div class="section">
-    <h2>ציר התקדמות ליעד</h2>
+    <h2>יעדי שליחה</h2>
     <form action="/update_goals" method="post">
-      <label>יעד הודעות:</label>
+      <label>יעד עיקרי:</label>
       <input type="number" name="target_goal" value="{{ target_goal }}" min="1">
       <label>יעד בונוס:</label>
       <input type="number" name="bonus_goal" value="{{ bonus_goal }}" min="0">
-      <label><input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}> הפעל שלב בונוס</label>
-      <input type="submit" value="שמור יעד">
+      <label><input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}> הפעל יעד בונוס</label>
+      <input type="submit" value="שמור">
     </form>
-    <p>נשלחו <strong>{{ total_sent }}</strong> מתוך יעד <strong>{{ target_goal }}</strong>{% if bonus_active %} + <strong>{{ bonus_goal }}</strong> בונוס{% endif %}</p>
     <div class="progress-bar">
-      <div class="progress-bar-inner" style="width: {{ (total_sent / target_goal * 100) if target_goal else 0 }}%"></div>
       {% if bonus_active %}
-        <div class="bonus-bar-inner" style="width: {{ (total_sent / (target_goal + bonus_goal) * 100) if (target_goal + bonus_goal) else 0 }}%"></div>
+        <div class="bonus-bar" style="width: {{ (target_goal + bonus_goal) / (rows|length or 1) * 100 }}%"></div>
       {% endif %}
+      <div class="progress-bar-inner" style="width: {{ total_sent / (rows|length or 1) * 100 }}%">{{ total_sent }} / {{ rows|length }}</div>
     </div>
   </div>
 
   <div class="section">
-    <h2>פעולות</h2>
-    <div class="actions">
-      <form action="/download">
-        <input type="submit" value="הורד נתונים כ־CSV">
-      </form>
-      <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
-        <input type="submit" value="אפס מערכת">
-      </form>
+    <h2>סטטיסטיקה לפי תגובה</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+      {% for label, count in stats.items() %}
+        <div class="stat-box">
+          <div class="label">{{ label }}</div>
+          <div class="count">{{ count }}</div>
+        </div>
+      {% endfor %}
     </div>
   </div>
 
@@ -180,7 +129,7 @@
     <h2>הגדרת מילת הפעלה</h2>
     <form method="post">
       <input type="hidden" name="update_activation_word">
-      <input type="text" name="activation_word" placeholder="לדוג' התחלה, היי וכו'" value="{{ activation_word }}">
+      <input type="text" name="activation_word" value="{{ activation_word }}" placeholder="לדוג' התחלה, היי וכו'">
       <input type="submit" value="שמור">
     </form>
   </div>
@@ -189,7 +138,7 @@
     <h2>התאמה אישית של ההודעה</h2>
     <form method="post">
       <input type="hidden" name="update_template">
-      <textarea name="template" rows="3" placeholder="יישר כח! המספר הבא הוא {next}...">{{ template }}</textarea>
+      <textarea name="template" rows="2" placeholder="יישר כח! המספר הבא הוא {next}...">{{ template }}</textarea>
       <input type="submit" value="שמור">
     </form>
   </div>
@@ -198,15 +147,26 @@
     <h2>הגדרות תגובה לספרות</h2>
     <form method="post">
       <input type="hidden" name="update_response_map">
-      {% for digit, config in response_map.items() %}
-        <div class="grid-row">
-          <label>{{ digit }}</label>
-          <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
-          <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}> חזרה
-          <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" placeholder="שעות">
-        </div>
-      {% endfor %}
+      <div class="grid">
+        {% for digit, config in response_map.items() %}
+          <div>
+            <label>ספרה {{ digit }}</label>
+            <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
+            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}> חזרה?
+            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" style="width:60px"> שעות
+          </div>
+        {% endfor %}
+      </div>
       <input type="submit" value="שמור שינויים">
+    </form>
+  </div>
+
+  <div class="section">
+    <form action="/download">
+      <input type="submit" value="הורד נתונים כ־CSV">
+    </form>
+    <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
+      <input type="submit" value="אפס מערכת">
     </form>
   </div>
 
@@ -217,6 +177,7 @@
         <tr>
           <th>#</th>
           <th>מספר מטרה</th>
+          <th>הודעה שנשלחה</th>
           <th>נשלח למספר</th>
           <th>זמן שליחה</th>
           <th>פירוש תגובה</th>
@@ -228,6 +189,7 @@
           <tr>
             <td>{{ i + 1 }}</td>
             <td>{{ rows[i] }}</td>
+            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
             <td>{{ send_log[i].to if send_log[i] is defined }}</td>
             <td>{{ send_log[i].time if send_log[i] is defined }}</td>
             <td>{{ responses[i].label if responses[i] is defined }}</td>
