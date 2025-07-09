@@ -85,6 +85,50 @@ def upload():
     except Exception as e:
         return f"שגיאה בקריאת הקובץ: {str(e)}", 500
 
+@app.route("/reset", methods=["POST"])
+def reset():
+    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, filename
+    rows = []
+    sent_indices = set()
+    phone_map = {}
+    responses = {}
+    send_log = {}
+    scheduled_retries = {}
+    filename = ""
+    save_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map,
+        "activation_word": activation_word,
+        "filename": filename,
+        "target_goal": target_goal,
+        "bonus_goal": bonus_goal,
+        "bonus_active": bonus_active
+    })
+    return redirect(url_for("home"))
+
+@app.route("/download")
+def download():
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Index", "Target Number", "To", "Send Time", "Response Label", "Response Time"])
+    for i in range(len(rows)):
+        row = [
+            i + 1,
+            rows[i],
+            send_log.get(i, {}).get("to", ""),
+            send_log.get(i, {}).get("time", ""),
+            responses.get(i, {}).get("label", ""),
+            responses.get(i, {}).get("time", "")
+        ]
+        writer.writerow(row)
+    return Response(output.getvalue(), mimetype='text/csv', headers={"Content-Disposition": "attachment;filename=data.csv"})
+
 @app.route("/")
 def home():
     now = datetime.now()
