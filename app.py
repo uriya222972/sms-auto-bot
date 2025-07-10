@@ -66,6 +66,19 @@ def root():
         return index()
     return redirect(url_for('login'))
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        hashed = hashlib.sha256(password.encode()).hexdigest()
+        if users.get(username) == hashed:
+            session["user"] = username
+            return redirect(url_for("index"))
+        error = "שם משתמש או סיסמה שגויים"
+    return render_template("login.html", error=error)
+
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def index():
@@ -198,7 +211,7 @@ def get_user_variables():
         "responses": saved.get("responses", {}),
         "send_log": saved.get("send_log", {}),
         "scheduled_retries": saved.get("scheduled_retries", {}),
-        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}.") ,
+        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}."),
         "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
         "encouragements": saved.get("encouragements", {}),
         "activation_word": saved.get("activation_word", "התחל"),
