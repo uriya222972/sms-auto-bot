@@ -57,7 +57,9 @@ def index():
         bonus_goal=bonus_goal,
         bonus_active=bonus_active,
         stats=stats,
-        encouragements=encouragements
+        encouragements=encouragements,
+        name_map=name_map,
+        greeting_template=greeting_template
     )
 
 @app.route("/upload", methods=["POST"])
@@ -71,6 +73,19 @@ def upload():
     csv_input = csv.reader(stream)
     new_numbers = [row[0] for row in csv_input if row]
     rows.extend(new_numbers)
+    save_all()
+    return redirect(url_for("index"))
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, name_map
+    rows.clear()
+    sent_indices.clear()
+    phone_map.clear()
+    responses.clear()
+    send_log.clear()
+    scheduled_retries.clear()
+    name_map.clear()
     save_all()
     return redirect(url_for("index"))
 
