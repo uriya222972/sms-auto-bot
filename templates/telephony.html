@@ -6,133 +6,157 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: #f1f8e9;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f9fbe7;
       padding: 30px;
-      direction: rtl;
-      color: #333;
+      text-align: center;
     }
-    .container {
-      max-width: 600px;
+
+    h1 {
+      color: #4caf50;
+    }
+
+    .box {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 500px;
       margin: auto;
-      background: #fff;
-      padding: 25px;
-      border-radius: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h2 {
-      color: #388e3c;
-      margin-bottom: 20px;
-    }
-    label {
-      font-weight: bold;
-    }
+
     input[type="text"], select {
       width: 100%;
       padding: 10px;
-      margin-top: 8px;
-      margin-bottom: 15px;
-      border-radius: 10px;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      border-radius: 8px;
       border: 1px solid #ccc;
+      font-size: 16px;
     }
+
     button {
       background-color: #388e3c;
       color: white;
       padding: 10px 20px;
+      font-size: 16px;
       border: none;
-      border-radius: 12px;
-      font-weight: bold;
+      border-radius: 8px;
       cursor: pointer;
-      width: 100%;
     }
+
     button:hover {
       background-color: #2e7d32;
     }
-    .message-box {
-      background: #e0f2f1;
-      padding: 10px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      text-align: center;
-      font-size: 18px;
-    }
-  </style>
-  <script>
-    let currentName = "";
-    function saveName() {
-      const name = document.getElementById("nameInput").value.trim();
-      if (!name) {
-        alert("נא להזין שם");
-        return;
-      }
-      localStorage.setItem("callerName", name);
-      document.getElementById("nameSection").style.display = "none";
-      document.getElementById("mainSection").style.display = "block";
-      document.getElementById("displayName").innerText = name;
-      loadNext();
+
+    #response-section {
+      margin-top: 20px;
     }
 
-    function loadNext() {
-      fetch("/telephony/next?name=" + encodeURIComponent(localStorage.getItem("callerName")))
+    .hidden {
+      display: none;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="box" id="login-box">
+    <h1>כניסת טלפנים</h1>
+    <label class="label">שם טלפן:</label>
+    <input type="text" id="agentName" placeholder="הכנס את שמך" required>
+    <button onclick="startSession()">התחל</button>
+  </div>
+
+  <div class="box hidden" id="main-box">
+    <h1>מספר הבא להתקשר:</h1>
+    <div id="currentNumber" style="font-size: 24px; margin: 20px 0;">לא נטען</div>
+
+    <label class="label">בחר תגובה:</label>
+    <select id="responseSelect">
+      <option value="">בחר תגובה</option>
+    </select>
+    <button onclick="submitResponse()">שמור תגובה</button>
+
+    <hr style="margin: 30px 0;">
+
+    <div id="manualUpdate">
+      <h2>עדכון תגובה ידני</h2>
+      <input type="text" id="manualInput" placeholder="מספר טלפון רווח תגובה (למשל 0501234567 2)">
+      <button onclick="manualResponse()">עדכן</button>
+    </div>
+  </div>
+
+  <script>
+    let agent = "";
+
+    function startSession() {
+      const name = document.getElementById("agentName").value.trim();
+      if (!name) {
+        alert("יש להזין שם");
+        return;
+      }
+      agent = name;
+      document.getElementById("login-box").classList.add("hidden");
+      document.getElementById("main-box").classList.remove("hidden");
+      fetchNextNumber();
+      loadOptions();
+    }
+
+    function fetchNextNumber() {
+      fetch("/next-number?agent=" + encodeURIComponent(agent))
+        .then(res => res.text())
+        .then(num => {
+          document.getElementById("currentNumber").innerText = num || "אין מספרים זמינים";
+        });
+    }
+
+    function loadOptions() {
+      fetch("/response-options")
         .then(res => res.json())
         .then(data => {
-          if (data.next) {
-            document.getElementById("nextNumber").innerText = data.next;
-            document.getElementById("status").innerText = "";
-            document.getElementById("responseSelect").selectedIndex = 0;
-          } else {
-            document.getElementById("nextNumber").innerText = "אין עוד מספרים ברשימה.";
-            document.getElementById("responseSelect").style.display = "none";
-            document.getElementById("submitResponse").style.display = "none";
-          }
+          const select = document.getElementById("responseSelect");
+          data.forEach(opt => {
+            const option = document.createElement("option");
+            option.value = opt.value;
+            option.text = opt.label;
+            select.appendChild(option);
+          });
         });
     }
 
     function submitResponse() {
-      const label = document.getElementById("responseSelect").value;
-      if (!label) {
-        alert("יש לבחור תגובה");
-        return;
-      }
-      fetch("/telephony/respond", {
+      const resp = document.getElementById("responseSelect").value;
+      if (!resp) return alert("בחר תגובה");
+
+      fetch("/submit-response", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: localStorage.getItem("callerName"),
-          response: label
-        })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ agent: agent, response: resp })
       }).then(() => {
-        loadNext();
+        document.getElementById("responseSelect").value = "";
+        fetchNextNumber();
+      });
+    }
+
+    function manualResponse() {
+      const input = document.getElementById("manualInput").value.trim();
+      if (!input || !input.includes(" ")) return alert("הכנס בפורמט תקני (מספר רווח תגובה)");
+      const [phone, response] = input.split(" ");
+      fetch("/manual-update", {
+        method: "POST",
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ phone: phone, response: response })
+      }).then(() => {
+        document.getElementById("manualInput").value = "";
+        alert("עודכן בהצלחה");
       });
     }
   </script>
-</head>
-<body>
-  <div class="container">
-    <div id="nameSection">
-      <h2>הכנס את שמך כדי להתחיל</h2>
-      <input type="text" id="nameInput" placeholder="שם טלפן">
-      <button onclick="saveName()">התחל</button>
-    </div>
 
-    <div id="mainSection" style="display: none;">
-      <h2>שלום <span id="displayName"></span> 👋</h2>
-      <div class="message-box">
-        המספר הבא להתקשרות: <strong id="nextNumber">...</strong>
-      </div>
-
-      <label for="responseSelect">בחר תגובה:</label>
-      <select id="responseSelect">
-        <option value="">-- בחר --</option>
-        {% for digit, config in response_map.items() %}
-          <option value="{{ digit }}">{{ config.label }}</option>
-        {% endfor %}
-      </select>
-
-      <button id="submitResponse" onclick="submitResponse()">עדכן תגובה והבא מספר חדש</button>
-
-      <div id="status"></div>
-    </div>
-  </div>
 </body>
 </html>
