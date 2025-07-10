@@ -12,7 +12,6 @@ API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
-# טענת נתונים
 saved = load_data()
 rows = saved.get("rows", [])
 sent_indices = set(saved.get("sent_indices", []))
@@ -35,11 +34,7 @@ pending_names = saved.get("pending_names", {})
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        if request.is_json:
-            data = request.get_json()
-        else:
-            data = request.form
-
+        data = request.get_json() if request.is_json else request.form
         phone = data.get("Phone")
         text = data.get("Message")
 
@@ -53,12 +48,7 @@ def index():
             for i in range(len(rows)):
                 if i not in sent_indices:
                     sent_indices.add(i)
-                    send_log[i] = {
-                        "to": phone,
-                        "phone": phone,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "message": "נשלח לפי שם"
-                    }
+                    send_log[i] = {"to": phone, "phone": phone, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "message": "נשלח לפי שם"}
                     msg = custom_template.replace("{next}", rows[i]).replace("{name}", name)
                     send_sms(phone, msg)
                     save_all()
@@ -71,6 +61,25 @@ def index():
             save_all()
             return "הודעת התחלה נקלטה"
 
+        for digit in response_map:
+            if text.strip().endswith(digit) and text.strip()[:-1].strip().isdigit():
+                num = text.strip()[:-1].strip()
+                for i, val in enumerate(rows):
+                    if val == num:
+                        label = response_map[digit]["label"]
+                        responses[i] = {
+                            "message": digit,
+                            "label": label,
+                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        messages = encouragements.get(digit, [])
+                        next_number = next((rows[j] for j in range(len(rows)) if j not in sent_indices), None)
+                        if messages and next_number:
+                            msg = random.choice(messages).replace("{next}", next_number)
+                            send_sms(phone, msg)
+                        save_all()
+                        return "OK"
+
         return "הודעה לא זוהתה"
 
     stats = {}
@@ -78,54 +87,8 @@ def index():
         label = r.get("label", "לא ידוע")
         stats[label] = stats.get(label, 0) + 1
 
-    return render_template("index.html",
-        rows=rows,
-        responses=responses,
-        send_log=send_log,
-        total_sent=len(sent_indices),
-        template=custom_template,
-        response_map=response_map,
-        activation_word=activation_word,
-        filename=filename,
-        target_goal=target_goal,
-        bonus_goal=bonus_goal,
-        bonus_active=bonus_active,
-        stats=stats,
-        encouragements=encouragements,
-        name_map=name_map,
-        greeting_template=greeting_template
-    )
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template)
 
-@app.route("/submit-response", methods=["POST"])
-def submit_response():
-    if request.is_json:
-        data = request.get_json()
-    else:
-        data = request.form
-
-    agent = data.get("agent")
-    response = data.get("response")
-    if not agent or not response:
-        return "Missing data", 400
-
-    for i in reversed(phone_map.get(agent, [])):
-        if i in send_log:
-            label = response_map.get(response, {}).get("label", "לא ידוע")
-            responses[i] = {
-                "message": response,
-                "label": label,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            next_number = next((rows[j] for j in range(len(rows)) if j not in sent_indices), None)
-            messages = encouragements.get(response, [])
-            if messages and next_number:
-                text = random.choice(messages).replace("{next}", next_number)
-                send_sms(agent, text)
-            save_all()
-            return "OK"
-    return "לא נמצא", 400
-
-# שאר הפונקציות לא משתנות - נשמרות כפי שהן
 @app.route("/upload", methods=["POST"])
 def upload():
     global rows, filename
@@ -159,17 +122,8 @@ def telephony():
     return render_template("telephony.html", response_map=response_map)
 
 def send_sms(phone, text):
-    payload = {
-        "Data": {
-            "Phones": phone,
-            "Sender": SENDER,
-            "Message": text
-        }
-    }
-    headers = {
-        "Authorization": AUTH_HEADER,
-        "Content-Type": "application/json"
-    }
+    payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
+    headers = {"Authorization": AUTH_HEADER, "Content-Type": "application/json"}
     try:
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
