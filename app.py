@@ -46,58 +46,21 @@ def save_user_data(data):
     full_data[user] = data
     save_data(full_data)
 
-saved = load_user_data()
-rows = saved.get("rows", [])
-sent_indices = set(saved.get("sent_indices", []))
-phone_map = saved.get("phone_map", {})
-responses = saved.get("responses", {})
-send_log = saved.get("send_log", {})
-scheduled_retries = saved.get("scheduled_retries", {})
-custom_template = saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}.")
-response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)})
-encouragements = saved.get("encouragements", {})
-activation_word = saved.get("activation_word", "התחל")
-filename = saved.get("filename", "")
-target_goal = saved.get("target_goal", 100)
-bonus_goal = saved.get("bonus_goal", 0)
-bonus_active = saved.get("bonus_active", False)
-name_map = saved.get("name_map", {})
-greeting_template = saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל.")
-pending_names = saved.get("pending_names", {})
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = hashlib.sha256(request.form["password"].encode()).hexdigest()
-        if username in users and users[username] == password:
-            session['user'] = username
-            return redirect(url_for('index'))
-        return "שם משתמש או סיסמה שגויים", 401
-    return render_template("login.html")
 
-@app.route("/logout")
-def logout():
-    session.pop("user", None)
-    return redirect(url_for("login"))
-
-@app.route("/admin/users", methods=["GET", "POST"])
-@admin_required
-def manage_users():
-    if request.method == "POST":
-        if 'delete_user' in request.form:
-            user_to_delete = request.form["delete_user"]
-            if user_to_delete in users:
-                users.pop(user_to_delete)
-                data = load_data()
-                if user_to_delete in data:
-                    del data[user_to_delete]
-                    save_data(data)
-        else:
-            new_user = request.form["new_user"]
-            new_pass = hashlib.sha256(request.form["new_pass"].encode()).hexdigest()
-            users[new_user] = new_pass
-    return render_template("manage_users.html", users=users)
+@app.route("/save", methods=["POST"])
+@login_required
+def auto_save():
+    data = request.get_json()
+    if not data or "key" not in data or "value" not in data:
+        return "Invalid request", 400
+    key = data["key"]
+    value = data["value"]
+    if key in globals():
+        globals()[key] = value
+        save_all()
+        return "Saved"
+    return "Unknown key", 400
 
 @app.route("/", methods=["GET", "POST"])
 def root():
@@ -108,10 +71,27 @@ def root():
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def index():
-    print("POST request received")
+    vars = get_user_variables()
+    rows = vars["rows"]
+    sent_indices = vars["sent_indices"]
+    phone_map = vars["phone_map"]
+    responses = vars["responses"]
+    send_log = vars["send_log"]
+    scheduled_retries = vars["scheduled_retries"]
+    custom_template = vars["custom_template"]
+    response_map = vars["response_map"]
+    encouragements = vars["encouragements"]
+    activation_word = vars["activation_word"]
+    filename = vars["filename"]
+    target_goal = vars["target_goal"]
+    bonus_goal = vars["bonus_goal"]
+    bonus_active = vars["bonus_active"]
+    name_map = vars["name_map"]
+    greeting_template = vars["greeting_template"]
+    pending_names = vars["pending_names"]
+
     if request.method == "POST":
         data = request.get_json() if request.is_json else request.form
-        print("Received data:", data)
         phone = data.get("Phone")
         text = data.get("Message")
 
@@ -169,11 +149,12 @@ def index():
 @app.route("/upload", methods=["POST"])
 @login_required
 def upload():
-    global rows, filename
+    vars = get_user_variables()
+    rows = vars["rows"]
+    filename = request.files.get("file").filename
     file = request.files.get("file")
     if not file:
         return "לא נבחר קובץ", 400
-    filename = file.filename
     stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
     csv_input = csv.reader(stream)
     new_numbers = [row[0] for row in csv_input if row]
@@ -184,22 +165,23 @@ def upload():
 @app.route("/reset", methods=["POST"])
 @login_required
 def reset():
-    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, name_map, pending_names
-    rows.clear()
-    sent_indices.clear()
-    phone_map.clear()
-    responses.clear()
-    send_log.clear()
-    scheduled_retries.clear()
-    name_map.clear()
-    pending_names.clear()
+    vars = get_user_variables()
+    vars["rows"].clear()
+    vars["sent_indices"].clear()
+    vars["phone_map"].clear()
+    vars["responses"].clear()
+    vars["send_log"].clear()
+    vars["scheduled_retries"].clear()
+    vars["name_map"].clear()
+    vars["pending_names"].clear()
     save_all()
     return redirect(url_for("index"))
 
 @app.route("/telephony")
 @login_required
 def telephony():
-    return render_template("telephony.html", response_map=response_map)
+    vars = get_user_variables()
+    return render_template("telephony.html", response_map=vars["response_map"])
 
 def send_sms(phone, text):
     payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
@@ -209,44 +191,29 @@ def send_sms(phone, text):
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
 
-def save_all():
-    save_user_data({
-        "rows": rows,
-        "sent_indices": list(sent_indices),
-        "phone_map": phone_map,
-        "responses": responses,
-        "send_log": send_log,
-        "scheduled_retries": scheduled_retries,
-        "custom_template": custom_template,
-        "response_map": response_map,
-        "activation_word": activation_word,
-        "filename": filename,
-        "target_goal": target_goal,
-        "bonus_goal": bonus_goal,
-        "bonus_active": bonus_active,
-        "name_map": name_map,
-        "greeting_template": greeting_template,
-        "encouragements": encouragements,
-        "pending_names": pending_names
-    })
+def get_user_variables():
+    saved = load_user_data()
+    return {
+        "rows": saved.get("rows", []),
+        "sent_indices": set(saved.get("sent_indices", [])),
+        "phone_map": saved.get("phone_map", {}),
+        "responses": saved.get("responses", {}),
+        "send_log": saved.get("send_log", {}),
+        "scheduled_retries": saved.get("scheduled_retries", {}),
+        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}.") ,
+        "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
+        "encouragements": saved.get("encouragements", {}),
+        "activation_word": saved.get("activation_word", "התחל"),
+        "filename": saved.get("filename", ""),
+        "target_goal": saved.get("target_goal", 100),
+        "bonus_goal": saved.get("bonus_goal", 0),
+        "bonus_active": saved.get("bonus_active", False),
+        "name_map": saved.get("name_map", {}),
+        "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
+        "pending_names": saved.get("pending_names", {})
+    }
 
-# override previous save_all
-    save_data({
-        "rows": rows,
-        "sent_indices": list(sent_indices),
-        "phone_map": phone_map,
-        "responses": responses,
-        "send_log": send_log,
-        "scheduled_retries": scheduled_retries,
-        "custom_template": custom_template,
-        "response_map": response_map,
-        "activation_word": activation_word,
-        "filename": filename,
-        "target_goal": target_goal,
-        "bonus_goal": bonus_goal,
-        "bonus_active": bonus_active,
-        "name_map": name_map,
-        "greeting_template": greeting_template,
-        "encouragements": encouragements,
-        "pending_names": pending_names
-    })
+def save_all():
+        data = get_user_variables()
+    data["sent_indices"] = list(data["sent_indices"])
+    save_user_data(data)
