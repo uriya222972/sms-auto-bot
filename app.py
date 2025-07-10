@@ -80,8 +80,10 @@ def manage_users():
         users[new_user] = new_pass
     return render_template("manage_users.html", users=users)
 
-@app.route("/", methods=["GET"])
+@app.route("/", methods=["GET", "POST"])
 def root():
+    if request.method == "POST":
+        return index()
     return redirect(url_for('login'))
 
 @app.route("/dashboard", methods=["GET", "POST"])
