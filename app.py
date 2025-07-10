@@ -80,11 +80,17 @@ def manage_users():
         users[new_user] = new_pass
     return render_template("manage_users.html", users=users)
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET"])
+def root():
+    return redirect(url_for('login'))
+
+@app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def index():
+    print("POST request received")
     if request.method == "POST":
         data = request.get_json() if request.is_json else request.form
+        print("Received data:", data)
         phone = data.get("Phone")
         text = data.get("Message")
 
