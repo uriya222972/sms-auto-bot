@@ -1,16 +1,40 @@
-from flask import Flask, request, redirect, url_for, render_template, jsonify
+from flask import Flask, request, redirect, url_for, render_template, jsonify, session
+from functools import wraps
 import requests
 import csv
 from io import TextIOWrapper
 from datetime import datetime
 import random
+import hashlib
 from storage import save_data, load_data
 
 app = Flask(__name__)
+app.secret_key = 'שנה_את_זה_לסוד_אמיתי'
 
 API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
+
+# משתמשים לדוגמה
+users = {
+    'admin': hashlib.sha256('1234'.encode()).hexdigest()
+}
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('user') != 'admin':
+            return "גישה חסומה", 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 saved = load_data()
 rows = saved.get("rows", [])
@@ -31,7 +55,33 @@ name_map = saved.get("name_map", {})
 greeting_template = saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל.")
 pending_names = saved.get("pending_names", {})
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = hashlib.sha256(request.form["password"].encode()).hexdigest()
+        if username in users and users[username] == password:
+            session['user'] = username
+            return redirect(url_for('index'))
+        return "שם משתמש או סיסמה שגויים", 401
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    return redirect(url_for("login"))
+
+@app.route("/admin/users", methods=["GET", "POST"])
+@admin_required
+def manage_users():
+    if request.method == "POST":
+        new_user = request.form["new_user"]
+        new_pass = hashlib.sha256(request.form["new_pass"].encode()).hexdigest()
+        users[new_user] = new_pass
+    return render_template("manage_users.html", users=users)
+
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def index():
     if request.method == "POST":
         data = request.get_json() if request.is_json else request.form
@@ -90,6 +140,7 @@ def index():
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template)
 
 @app.route("/upload", methods=["POST"])
+@login_required
 def upload():
     global rows, filename
     file = request.files.get("file")
@@ -104,6 +155,7 @@ def upload():
     return redirect(url_for("index"))
 
 @app.route("/reset", methods=["POST"])
+@login_required
 def reset():
     global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, name_map, pending_names
     rows.clear()
@@ -118,6 +170,7 @@ def reset():
     return redirect(url_for("index"))
 
 @app.route("/telephony")
+@login_required
 def telephony():
     return render_template("telephony.html", response_map=response_map)
 
