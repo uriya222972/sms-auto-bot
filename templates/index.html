@@ -1,104 +1,231 @@
-<div style="font-size: 14px; color: #555; text-align: left; margin-bottom: 10px;">
-  משתמש מחובר: <strong>{{ username }}</strong>
-</div>
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ClickCall - מערכת טלפנייה</title>
+  <style>
+    body {
+      font-family: 'Varela Round', 'Segoe UI', sans-serif;
+      direction: rtl;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to bottom, #e0f7fa, #ffffff);
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff;
+      border-bottom: 4px solid #0072ff;
+      padding: 15px 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .logo {
+      font-size: 36px;
+      color: #0072ff;
+      font-weight: bold;
+    }
+    button {
+      background: #0072ff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #005bb5;
+    }
+    h2 {
+      border-bottom: 2px solid #0072ff;
+      padding-bottom: 5px;
+      color: #0072ff;
+    }
+    .progress {
+      position: relative;
+      background: #f1f1f1;
+      border-radius: 20px;
+      height: 28px;
+      overflow: hidden;
+      margin: 10px 0;
+    }
+    .progress-bar {
+      height: 100%;
+      line-height: 28px;
+      text-align: center;
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+      color: white;
+      transition: width 0.5s;
+    }
+    .progress-bar.bonus {
+      background: linear-gradient(to right, #ffe082, #fb8c00);
+    }
+    .stat-boxes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .stat-box {
+      background: #ffffff;
+      border: 2px solid #0072ff;
+      border-left: 10px solid #0072ff;
+      padding: 12px;
+      border-radius: 8px;
+      flex: 1 1 180px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .stat-box h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #0072ff;
+    }
+    .stat-box span {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    form {
+      margin-bottom: 30px;
+    }
+    fieldset {
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    legend {
+      font-weight: bold;
+      color: #0072ff;
+    }
+    label {
+      display: block;
+      margin: 6px 0 2px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .toggle-enc {
+      cursor: pointer;
+      font-size: 13px;
+      color: #0072ff;
+      margin-bottom: 5px;
+      display: inline-block;
+    }
+    .enc-settings {
+      display: none;
+      padding: 10px;
+      background: #fff;
+      border: 1px dashed #ccc;
+      margin-top: 5px;
+    }
+  </style>
+  <script>
+    function toggleEnc(id) {
+      const el = document.getElementById(id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+    function copyAllEncouragements() {
+      const firstText = document.querySelector('textarea[name^="encouragements_"]').value;
+      document.querySelectorAll('textarea[name^="encouragements_"]').forEach(el => el.value = firstText);
+    }
+  </script>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="logo">📞 ClickCall</div>
+    <form method="POST" action="/reset"><button type="submit">איפוס מערכת</button></form>
+  </div>
 
-<div class="header-bar">
-  <div class="logo-title">📱 מערכת SMS אוטומטית</div>
-  <a href="/telephony" target="_blank" class="telephony-button">פתח ממשק טלפנים</a>
-</div>
+  <h2>העלאת קובץ</h2>
+  <form method="POST" action="/upload" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <button type="submit">העלה</button>
+  </form>
 
-<div class="section">
-  <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
-    <input type="submit" value="אפס מערכת">
-  </form>
-  <h2>העלאת קובץ CSV</h2>
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" accept=".csv" required>
-    <input type="submit" value="העלה קובץ">
-  </form>
-  {% if filename %}<p><strong>קובץ נבחר:</strong> {{ filename }}</p>{% endif %}
-</div>
-
-<div class="section">
-  <h2>הגדרות תגובה לספרות</h2>
-  <form method="post">
-    <input type="hidden" name="update_response_map">
-    <div class="response-grid">
-      {% for digit, config in response_map.items() %}
-        <div>
-          <label>{{ digit }}:</label>
-          <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם">
-          <label>חזרה:</label>
-          <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-          <label>שעות:</label>
-          <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" style="width: 50px;">
-          <label>הודעות עידוד:</label>
-          <textarea name="encouragements_{{ digit }}">{{ config.encouragements | join('\n') }}</textarea>
-        </div>
-      {% endfor %}
-    </div>
-    <input type="submit" value="שמור שינויים">
-  </form>
-</div>
-
-<div class="section">
-  <h2>ציר יעד</h2>
-  <form method="post">
-    <input type="hidden" name="update_target_goals">
-    <label>יעד:</label>
-    <input type="number" name="target_goal" value="{{ target_goal }}">
-    <label>יעד בונוס:</label>
-    <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
-    <label>הפעל בונוס:</label>
-    <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
-    <input type="submit" value="שמור">
-  </form>
-  <div class="progress-bar">
-    <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
-      {{ total_sent }} / {{ target_goal }} <span class="arrow">⬆</span>
+  <h2>התקדמות</h2>
+  <div class="progress">
+    <div class="progress-bar" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
+      {{ total_sent }} / {{ target_goal }} ⬆️
     </div>
   </div>
   {% if bonus_active %}
-    <div class="progress-bar" style="margin-top: 10px; background: #ffe0b2;">
-      <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
-        {{ total_sent }} / {{ bonus_goal }} (בונוס) <span class="arrow">⬆</span>
-      </div>
+  <div class="progress">
+    <div class="progress-bar bonus" style="width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+      {{ total_sent }} / {{ bonus_goal }} 🎯
     </div>
+  </div>
   {% endif %}
-</div>
 
-<div class="section">
-  <form action="/download">
-    <input type="submit" value="הורד נתונים כ־CSV">
+  <h2>סטטיסטיקות</h2>
+  <div class="stat-boxes">
+    {% for label, count in stats.items() %}
+      <div class="stat-box">
+        <h3>{{ label }}</h3>
+        <span>{{ count }}</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <h2>הגדרות תגובות</h2>
+  <form method="POST" action="/update-settings">
+    <button type="button" onclick="copyAllEncouragements()">📋 שכפל עידוד</button>
+    {% for digit, setting in response_map.items() %}
+      <fieldset>
+        <legend>הגדרה {{ digit }}</legend>
+        <label>שם תגובה:
+          <input type="text" name="label_{{ digit }}" value="{{ setting.label }}">
+        </label>
+        <label>נדרש חזרה:
+          <input type="checkbox" name="callback_{{ digit }}" {% if setting.callback_required %}checked{% endif %}>
+        </label>
+        <label>שעות למענה:
+          <input type="number" name="hours_{{ digit }}" value="{{ setting.hours }}">
+        </label>
+        <div>
+          <span class="toggle-enc" onclick="toggleEnc('enc_{{ digit }}')">הודעות עידוד</span>
+          <div class="enc-settings" id="enc_{{ digit }}">
+            <textarea name="encouragements_{{ digit }}" rows="3">{% for msg in encouragements.get(digit, []) %}{{ msg }}{% if not loop.last %}, {% endif %}{% endfor %}</textarea>
+          </div>
+        </div>
+      </fieldset>
+    {% endfor %}
+    <button type="submit">💾 שמור</button>
+  </form>
+
+  <h2>הגדרות מערכת</h2>
+  <form method="POST" action="/update-config">
+    <label>מילת פתיחה:
+      <input type="text" name="activation_word" value="{{ activation_word }}">
+    </label>
+    <label>ברכה:
+      <input type="text" name="greeting_template" value="{{ greeting_template }}">
+    </label>
+    <label>תבנית הודעה:
+      <input type="text" name="custom_template" value="{{ template }}">
+    </label>
+    <label>יעד:
+      <input type="number" name="target_goal" value="{{ target_goal }}">
+    </label>
+    <label>יעד בונוס:
+      <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
+    </label>
+    <label>
+      <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}> הפעל בונוס
+    </label>
+    <button type="submit">💾 שמור</button>
   </form>
 </div>
-
-<div class="section">
-  <h2>טבלת נתונים</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>יעד</th>
-        <th>הודעה שנשלחה</th>
-        <th>נשלח אל</th>
-        <th>זמן שליחה</th>
-        <th>פירוש תגובה</th>
-        <th>זמן תגובה</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for i in range(rows|length) %}
-        <tr>
-          <td>{{ i + 1 }}</td>
-          <td>{{ name_map.get(rows[i], rows[i]) }}</td>
-          <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-          <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-          <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-          <td>{{ responses[i].label if responses[i] is defined }}</td>
-          <td>{{ responses[i].time if responses[i] is defined }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+</body>
+</html>
