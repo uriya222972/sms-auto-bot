@@ -29,7 +29,7 @@ response_map = saved.get("response_map", {
         "followups": []
     } for i in range(1, 10)
 })
-encouragements = saved.get("encouragements", {})  # new
+encouragements = saved.get("encouragements", {})
 activation_word = saved.get("activation_word", "התחל")
 filename = saved.get("filename", "")
 target_goal = saved.get("target_goal", 100)
@@ -59,6 +59,20 @@ def index():
         stats=stats,
         encouragements=encouragements
     )
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    global rows, filename
+    file = request.files.get("file")
+    if not file:
+        return "לא נבחר קובץ", 400
+    filename = file.filename
+    stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
+    csv_input = csv.reader(stream)
+    new_numbers = [row[0] for row in csv_input if row]
+    rows.extend(new_numbers)
+    save_all()
+    return redirect(url_for("index"))
 
 @app.route("/telephony")
 def telephony():
@@ -104,7 +118,7 @@ def submit_response():
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             # Send encouragement if available
-            next_number = ""  # Default
+            next_number = ""
             for j in range(len(rows)):
                 if j not in sent_indices:
                     next_number = rows[j]
