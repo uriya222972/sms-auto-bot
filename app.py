@@ -36,7 +36,17 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-saved = load_data()
+def load_user_data():
+    user = session.get('user', 'default')
+    return load_data().get(user, {})
+
+def save_user_data(data):
+    user = session.get('user', 'default')
+    full_data = load_data()
+    full_data[user] = data
+    save_data(full_data)
+
+saved = load_user_data()
 rows = saved.get("rows", [])
 sent_indices = set(saved.get("sent_indices", []))
 phone_map = saved.get("phone_map", {})
@@ -75,9 +85,18 @@ def logout():
 @admin_required
 def manage_users():
     if request.method == "POST":
-        new_user = request.form["new_user"]
-        new_pass = hashlib.sha256(request.form["new_pass"].encode()).hexdigest()
-        users[new_user] = new_pass
+        if 'delete_user' in request.form:
+            user_to_delete = request.form["delete_user"]
+            if user_to_delete in users:
+                users.pop(user_to_delete)
+                data = load_data()
+                if user_to_delete in data:
+                    del data[user_to_delete]
+                    save_data(data)
+        else:
+            new_user = request.form["new_user"]
+            new_pass = hashlib.sha256(request.form["new_pass"].encode()).hexdigest()
+            users[new_user] = new_pass
     return render_template("manage_users.html", users=users)
 
 @app.route("/", methods=["GET", "POST"])
@@ -191,6 +210,27 @@ def send_sms(phone, text):
         print("שגיאה בשליחת SMS:", e)
 
 def save_all():
+    save_user_data({
+        "rows": rows,
+        "sent_indices": list(sent_indices),
+        "phone_map": phone_map,
+        "responses": responses,
+        "send_log": send_log,
+        "scheduled_retries": scheduled_retries,
+        "custom_template": custom_template,
+        "response_map": response_map,
+        "activation_word": activation_word,
+        "filename": filename,
+        "target_goal": target_goal,
+        "bonus_goal": bonus_goal,
+        "bonus_active": bonus_active,
+        "name_map": name_map,
+        "greeting_template": greeting_template,
+        "encouragements": encouragements,
+        "pending_names": pending_names
+    })
+
+# override previous save_all
     save_data({
         "rows": rows,
         "sent_indices": list(sent_indices),
