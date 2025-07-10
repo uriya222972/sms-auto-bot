@@ -10,7 +10,6 @@
       background: linear-gradient(120deg, #e0f7fa, #f1f8e9);
       color: #333;
       padding: 20px;
-      direction: rtl;
     }
 
     .header-bar {
@@ -35,10 +34,6 @@
       font-weight: bold;
     }
 
-    .telephony-button:hover {
-      background-color: #4a148c;
-    }
-
     .section {
       background: #ffffffcc;
       border-radius: 16px;
@@ -47,22 +42,13 @@
       margin-bottom: 20px;
     }
 
-    .section h2 {
-      margin-top: 0;
-      color: #388e3c;
-    }
-
     input[type="text"], input[type="number"], textarea, select {
       width: 100%;
-      padding: 10px;
+      padding: 8px;
       margin-top: 5px;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       border: 1px solid #ccc;
       border-radius: 10px;
-    }
-
-    input[type="file"] {
-      margin-bottom: 15px;
     }
 
     input[type="submit"], button {
@@ -73,54 +59,32 @@
       border-radius: 12px;
       cursor: pointer;
       font-weight: bold;
-    }
-
-    input[type="submit"]:hover, button:hover {
-      background-color: #004d40;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-      background-color: #f9fbe7;
-    }
-
-    th {
-      background-color: #aed581;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 10px;
-    }
-
-    label {
-      font-weight: bold;
+      margin-top: 5px;
     }
 
     .progress-bar {
-      height: 20px;
-      background: #c8e6c9;
+      height: 24px;
+      background: #ddd;
       border-radius: 10px;
       overflow: hidden;
-      margin-top: 10px;
+      margin-bottom: 10px;
     }
 
     .progress-bar-inner {
       height: 100%;
-      background: #388e3c;
+      background: #4caf50;
       text-align: center;
       color: white;
-      line-height: 20px;
+      line-height: 24px;
       transition: width 0.3s;
+    }
+
+    .bonus {
+      background: #ffe0b2;
+    }
+
+    .bonus .progress-bar-inner {
+      background: #fb8c00;
     }
 
     .stats-boxes {
@@ -131,49 +95,47 @@
     }
 
     .stats-box {
-      flex: 1 1 120px;
-      background: #ffe0b2;
+      flex: 1 1 150px;
+      background: #e1bee7;
       border-radius: 12px;
       padding: 10px;
       text-align: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
 
     .stats-box-title {
-      font-size: 18px;
       font-weight: bold;
-      color: #e65100;
+      font-size: 18px;
+      color: #6a1b9a;
     }
 
     .stats-box-value {
       font-size: 24px;
-      font-weight: bold;
     }
 
-    .response-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      font-size: 14px;
-    }
-
-    .followup-toggle {
-      cursor: pointer;
-      color: #1565c0;
-      font-size: 12px;
+    .response-advanced {
       margin-top: 5px;
-    }
-
-    .followup-box {
       display: none;
-      margin-top: 5px;
+    }
+
+    .response-toggle {
+      cursor: pointer;
+      color: #00796b;
+      font-size: 12px;
+      margin-bottom: 10px;
     }
   </style>
-
   <script>
-    function toggleFollowup(id) {
-      const el = document.getElementById(id);
+    function toggleAdvanced(id) {
+      var el = document.getElementById(id);
       el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function addEncouragement(digit) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.name = "encouragement_" + digit;
+      input.placeholder = "הודעת עידוד";
+      document.getElementById("encs_" + digit).appendChild(input);
     }
   </script>
 </head>
@@ -181,18 +143,17 @@
 
   <div class="header-bar">
     <div class="logo-title">📱 מערכת SMS אוטומטית</div>
-    <a href="/telephony" target="_blank" class="telephony-button">פתח ממשק טלפנים</a>
+    <a href="/telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
   </div>
 
   <div class="section">
     <h2>העלאת קובץ CSV</h2>
     <form action="/upload" method="post" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv" required>
-      <input type="submit" value="העלה קובץ חדש">
+      <input type="submit" value="העלה קובץ">
     </form>
-    <form action="/append" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required>
-      <input type="submit" value="הוסף לרשימה קיימת">
+    <form action="/reset" method="post" style="display:inline;">
+      <input type="submit" value="אפס מערכת" onclick="return confirm('לאפס את המערכת?');">
     </form>
     {% if filename %}
       <p><strong>קובץ נבחר:</strong> {{ filename }}</p>
@@ -200,15 +161,29 @@
   </div>
 
   <div class="section">
-    <h2>ציר יעד</h2>
+    <h2>הגדרת יעד ויעד בונוס</h2>
+    <form method="post">
+      <input type="hidden" name="update_goals">
+      <label>יעד:</label>
+      <input type="number" name="target_goal" value="{{ target_goal }}">
+      <label>יעד בונוס:</label>
+      <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
+      <label>הפעל יעד בונוס:</label>
+      <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
+      <input type="submit" value="שמור">
+    </form>
+  </div>
+
+  <div class="section">
+    <h2>התקדמות</h2>
     <div class="progress-bar">
       <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
         {{ total_sent }} / {{ target_goal }}
       </div>
     </div>
     {% if bonus_active %}
-      <div class="progress-bar" style="margin-top: 10px; background: #ffe0b2;">
-        <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+      <div class="progress-bar bonus">
+        <div class="progress-bar-inner" style="width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
           {{ total_sent }} / {{ bonus_goal }} (בונוס)
         </div>
       </div>
@@ -216,7 +191,7 @@
   </div>
 
   <div class="section">
-    <h2>סטטיסטיקה לפי תגובה</h2>
+    <h2>סטטיסטיקות לפי תגובה</h2>
     <div class="stats-boxes">
       {% for label, count in stats.items() %}
         <div class="stats-box">
@@ -228,80 +203,23 @@
   </div>
 
   <div class="section">
-    <form action="/download">
-      <input type="submit" value="הורד נתונים כ־CSV">
-    </form>
-    <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
-      <input type="submit" value="אפס מערכת">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>הגדרות כלליות</h2>
+    <h2>הודעות עידוד לפי תגובה</h2>
     <form method="post">
-      <input type="hidden" name="update_activation_word">
-      <label>מילת הפעלה:</label>
-      <input type="text" name="activation_word" value="{{ activation_word }}">
-      <label>הודעת פתיחה (לבקשת שם):</label>
-      <textarea name="greeting_template">{{ greeting_template }}</textarea>
-      <label>תבנית הודעה מותאמת אישית:</label>
-      <textarea name="template">{{ template }}</textarea>
-      <input type="submit" value="שמור">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>הגדרות תגובה</h2>
-    <form method="post">
-      <input type="hidden" name="update_response_map">
-      <div class="response-grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>{{ digit }}:</label>
-            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג': תרם">
-            <label>חזרה:</label>
-            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-            <label>שעות:</label>
-            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" style="width: 50px;">
-            <div class="followup-toggle" onclick="toggleFollowup('followups_{{ digit }}')">+ הוסף הודעות עידוד</div>
-            <div id="followups_{{ digit }}" class="followup-box">
-              <textarea name="followups_{{ digit }}" rows="4">{{ config.followups | join('\n') }}</textarea>
-            </div>
+      <input type="hidden" name="update_encouragements">
+      {% for digit, config in response_map.items() %}
+        <div>
+          <b>{{ digit }} - {{ config.label }}</b>
+          <span class="response-toggle" onclick="toggleAdvanced('encs_{{ digit }}')">הצג/הסתר הודעות</span>
+          <div id="encs_{{ digit }}" class="response-advanced">
+            {% for msg in encouragements.get(digit, []) %}
+              <input type="text" name="encouragement_{{ digit }}" value="{{ msg }}">
+            {% endfor %}
+            <button type="button" onclick="addEncouragement('{{ digit }}')">➕</button>
           </div>
-        {% endfor %}
-      </div>
-      <input type="submit" value="שמור שינויים">
+        </div>
+      {% endfor %}
+      <input type="submit" value="שמור הודעות עידוד">
     </form>
-  </div>
-
-  <div class="section">
-    <h2>טבלת נתונים</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>מספר מטרה</th>
-          <th>הודעה שנשלחה</th>
-          <th>נשלח ל</th>
-          <th>זמן שליחה</th>
-          <th>פירוש תגובה</th>
-          <th>זמן תגובה</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for i in range(rows|length) %}
-          <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ rows[i] }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].label if responses[i] is defined }}</td>
-            <td>{{ responses[i].time if responses[i] is defined }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
 
 </body>
