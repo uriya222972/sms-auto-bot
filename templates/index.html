@@ -84,19 +84,6 @@
       display: block;
       margin-top: 10px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-    }
-    th {
-      background-color: #e0f2f1;
-    }
     .progress-bar {
       height: 24px;
       background: #c8e6c9;
@@ -115,10 +102,22 @@
     .arrow {
       margin-right: 6px;
     }
-    .response-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 12px;
+    details summary {
+      cursor: pointer;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #e0f2f1;
     }
   </style>
 </head>
@@ -144,24 +143,50 @@
   </div>
 
   <div class="section">
-    <h2>הגדרות תגובה לספרות</h2>
+    <h2>הגדרת מילת פתיחה והודעת קבלת שם</h2>
+    <form method="post">
+      <input type="hidden" name="update_activation">
+      <label>מילת הפעלה:</label>
+      <input type="text" name="activation_word" value="{{ activation_word }}">
+      <label>הודעת פתיחה:</label>
+      <textarea name="greeting_template">{{ greeting_template }}</textarea>
+      <input type="submit" value="שמור">
+    </form>
+  </div>
+
+  <div class="section">
+    <h2>סטטיסטיקות תגובות</h2>
+    <ul>
+      {% for label, count in stats.items() %}
+        <li><strong>{{ label }}</strong>: {{ count }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>הגדרות תגובות לספרות</h2>
     <form method="post">
       <input type="hidden" name="update_response_map">
-      <div class="response-grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>{{ digit }}:</label>
-            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם">
-            <label>חזרה:</label>
-            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-            <label>שעות:</label>
-            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
-            <label>הודעות עידוד:</label>
-            <textarea name="encouragements_{{ digit }}">{{ config.encouragements | join('\n') }}</textarea>
-          </div>
-        {% endfor %}
-      </div>
+      {% for digit, config in response_map.items() %}
+        <details>
+          <summary>תגובה לספרה {{ digit }} ({{ config.label }})</summary>
+          <label>תיאור:</label>
+          <input type="text" name="label_{{ digit }}" value="{{ config.label }}">
+          <label>חזרה:</label>
+          <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
+          <label>שעות:</label>
+          <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0">
+          <label>הודעות עידוד:</label>
+          <textarea name="encouragements_{{ digit }}">{{ config.encouragements | join('\n') }}</textarea>
+        </details>
+      {% endfor %}
       <input type="submit" value="שמור שינויים">
+    </form>
+    <form method="post">
+      <input type="hidden" name="copy_encouragements">
+      <label>העתקת הודעות עידוד מספרה:</label>
+      <input type="text" name="from_digit">
+      <input type="submit" value="שכפל לכל שאר הספרות">
     </form>
   </div>
 
@@ -198,33 +223,35 @@
   </div>
 
   <div class="section">
-    <h2>טבלת נתונים</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>יעד</th>
-          <th>הודעה שנשלחה</th>
-          <th>נשלח אל</th>
-          <th>זמן שליחה</th>
-          <th>פירוש תגובה</th>
-          <th>זמן תגובה</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for i in range(rows|length) %}
+    <details>
+      <summary><strong>📊 פתיחת טבלת נתונים</strong></summary>
+      <table>
+        <thead>
           <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ name_map.get(rows[i], rows[i]) }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].label if responses[i] is defined }}</td>
-            <td>{{ responses[i].time if responses[i] is defined }}</td>
+            <th>#</th>
+            <th>יעד</th>
+            <th>הודעה שנשלחה</th>
+            <th>נשלח אל</th>
+            <th>זמן שליחה</th>
+            <th>פירוש תגובה</th>
+            <th>זמן תגובה</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {% for i in range(rows|length) %}
+            <tr>
+              <td>{{ i + 1 }}</td>
+              <td>{{ name_map.get(rows[i], rows[i]) }}</td>
+              <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+              <td>{{ responses[i].label if responses[i] is defined }}</td>
+              <td>{{ responses[i].time if responses[i] is defined }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
   </div>
 </body>
 </html>
