@@ -61,3 +61,61 @@
   </div>
   <div class="response-section">
     <h3>הגדרות תגובה:</h3>
+    {% for digit, data in response_map.items() %}
+    <div class="response-row">
+      <label>{{ digit }}:</label>
+      <input type="text" name="label-{{ digit }}" value="{{ data.label }}" placeholder="כותרת">
+      <span class="encouragement-box" onclick="toggleEncouragement('{{ digit }}')">📩 הודעות עידוד</span>
+      <div id="enc-{{ digit }}" class="hidden">
+        <textarea name="encouragement-{{ digit }}" rows="3" placeholder="כל שורה הודעה נפרדת...">{% for msg in encouragements.get(digit, []) %}{{ msg }}{% if not loop.last %}\n{% endif %}{% endfor %}</textarea>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="controls-section">
+    <h3>פעולות נוספות:</h3>
+    <form method="get" action="/telephony" target="_blank" class="inline">
+      <button type="submit" class="btn">פתח ממשק טלפן</button>
+    </form>
+    <form method="get" action="/download" class="inline">
+      <button type="submit" class="btn">הורד נתונים</button>
+    </form>
+  </div>
+
+  <div class="numbers-section">
+    <h3>מספרים:</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>מספר</th>
+          <th>שם</th>
+          <th>סטטוס</th>
+          <th>תגובה</th>
+          <th>שעה</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(rows|length) %}
+        <tr>
+          <td>{{ i + 1 }}</td>
+          <td>{{ rows[i] }}</td>
+          <td>{{ name_map.get(send_log[i].phone) if i in send_log and send_log[i].phone in name_map else '' }}</td>
+          <td>{{ "נשלח" if i in send_log else "" }}</td>
+          <td>{{ responses[i].label if i in responses else "" }}</td>
+          <td>{{ responses[i].time if i in responses else "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function toggleEncouragement(digit) {
+      const box = document.getElementById("enc-" + digit);
+      box.classList.toggle("hidden");
+    }
+  </script>
+</body>
+</html>
