@@ -1,172 +1,115 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>ClickCall - מערכת טלפנים</title>
+  <meta charset="UTF-8">
+  <title>ClickCall - מערכת טלפנייה</title>
   <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f9f9f9;
-      direction: rtl;
-    }
-    header {
-      background-color: #4a90e2;
-      color: white;
-      padding: 20px;
-      text-align: right;
-      font-size: 28px;
-      font-weight: bold;
-    }
-    .container {
-      padding: 20px;
-      max-width: 1200px;
-      margin: auto;
-    }
-    .stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 30px;
-    }
-    .stat-box {
-      flex: 1 0 21%;
-      background-color: #fff;
-      border-right: 8px solid #4a90e2;
-      padding: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      text-align: center;
-      border-radius: 8px;
-    }
-    .stat-box h3 {
-      margin: 0;
-      font-size: 16px;
-      color: #444;
-    }
-    .stat-box p {
-      font-size: 24px;
-      font-weight: bold;
-      margin: 5px 0 0;
-      color: #222;
-    }
-    .bar {
-      margin: 10px 0;
-      height: 20px;
-      background: #ddd;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .bar-inner {
-      height: 100%;
-      background: linear-gradient(90deg, #4caf50, #81c784);
-      transition: width 0.5s;
-    }
+    body { font-family: sans-serif; direction: rtl; padding: 20px; }
+    .stat-box { display: inline-block; padding: 15px; margin: 10px; border-radius: 12px; color: white; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .blue { background-color: #3498db; }
+    .green { background-color: #2ecc71; }
+    .orange { background-color: #e67e22; }
+    .progress { height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    .progress-bar { height: 100%; background: linear-gradient(to right, #00c6ff, #0072ff); text-align: center; color: white; line-height: 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; }
+    h1.logo { font-size: 28px; color: #0072ff; margin: 0; }
+    button { margin-top: 10px; }
+    .enc-settings { margin-top: 5px; padding: 5px; border: 1px dashed #ccc; display: none; }
+    .toggle-enc:hover { cursor: pointer; text-decoration: underline; }
   </style>
+  <script>
+    function toggleEnc(id) {
+      const el = document.getElementById(id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+  </script>
 </head>
 <body>
-  <header>ClickCall - מערכת טלפנים</header>
-  <div class="container">
-    <h2>סטטיסטיקות</h2>
-    <div class="stats">
-      {% for label, count in stats.items() %}
-        <div class="stat-box">
-          <h3>{{ label }}</h3>
-          <p>{{ count }}</p>
-        </div>
-      {% endfor %}
-    </div>
-    <h2>התקדמות לעבר היעד</h2>
-    <div class="bar">
-      <div class="bar-inner" style="width: {{ progress }}%;"></div>
-    </div>
-    <p>הושלמו {{ progress }}% מהיעד ({{ target_goal }} מספרים)</p>
-
-    {% if bonus_active %}
-      <h3>יעד בונוס 🎯</h3>
-      <div class="bar">
-        <div class="bar-inner" style="background: linear-gradient(90deg, #ff9800, #ffc107); width: {{ bonus_progress }}%;"></div>
-      </div>
-      <p>הושגו {{ bonus_progress }}% מהיעד בונוס ({{ bonus_goal }} מספרים)</p>
-    {% endif %}
-
-    <form action="/upload" method="POST" enctype="multipart/form-data">
-      <h2>העלאת רשימת טלפונים</h2>
-      <input type="file" name="file" required>
-      <button type="submit">העלה קובץ</button>
-    </form>
-
-    <form action="/reset" method="POST" style="margin-top: 10px;">
-      <button type="submit" style="background-color: #f44336; color: white;">איפוס המערכת</button>
-    </form>
-
-    <a href="/telephony" target="_blank" style="display: inline-block; margin-top: 20px; font-weight: bold; text-decoration: underline;">פתח ממשק לטלפנים</a>
-
-    <h2 style="margin-top: 40px;">נתונים שנשלחו</h2>
-    <a href="/download" style="display: block; margin-bottom: 10px;">📥 הורד את הנתונים לקובץ</a>
-    <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; background: white;">
-      <thead>
-        <tr>
-          <th>שם</th>
-          <th>מספר טלפון</th>
-          <th>תאריך</th>
-          <th>תגובה</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for index, log in send_log.items() %}
-          <tr>
-            <td>{{ name_map.get(log.to, '---') }}</td>
-            <td>{{ log.phone }}</td>
-            <td>{{ log.time }}</td>
-            <td>{{ responses.get(index, {}).get('label', '') }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <h2>הגדרות תגובות</h2>
-    <form id="settings-form" method="POST" action="/update-settings">
-      {% for digit, setting in response_map.items() %}
-        <fieldset style="margin-bottom: 20px;">
-          <legend>הגדרה {{ digit }}</legend>
-          <label>תיאור ההגדרה:
-            <input type="text" name="label_{{ digit }}" value="{{ setting.label }}">
-          </label><br>
-          <label>נדרש שיחה חוזרת:
-            <input type="checkbox" name="callback_{{ digit }}" {% if setting.callback_required %}checked{% endif %}>
-          </label><br>
-          <label>שעות למענה:
-            <input type="number" name="hours_{{ digit }}" value="{{ setting.hours }}">
-          </label><br>
-          <label>הודעות עידוד (הפרד בין הודעות עם פסיק):</label><br>
-          <textarea name="encouragements_{{ digit }}" rows="2" cols="50">{% for msg in encouragements.get(digit, []) %}{{ msg }}{% if not loop.last %}, {% endif %}{% endfor %}</textarea>
-        </fieldset>
-      {% endfor %}
-      <button type="submit">שמור שינויים</button>
-    </form>
-
-    <h2>הגדרות מערכת</h2>
-    <form method="POST" action="/update-config">
-      <label>מילת הפעלה:
-        <input type="text" name="activation_word" value="{{ activation_word }}">
-      </label><br>
-      <label>ברכת פתיחה:
-        <input type="text" name="greeting_template" value="{{ greeting_template }}">
-      </label><br>
-      <label>תבנית הודעה:
-        <input type="text" name="custom_template" value="{{ template }}">
-      </label><br>
-      <label>יעד ראשי:
-        <input type="number" name="target_goal" value="{{ target_goal }}">
-      </label><br>
-      <label>יעד בונוס:
-        <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
-      </label><br>
-      <label>הפעל יעד בונוס:
-        <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
-      </label><br>
-      <button type="submit">שמור הגדרות</button>
-    </form>
+  <div class="topbar">
+    <h1 class="logo">ClickCall</h1>
+    <form method="POST" action="/reset" style="display:inline;"><button type="submit">איפוס מערכת</button></form>
   </div>
+
+  <h2>העלאת קובץ טלפונים</h2>
+  <form method="POST" action="/upload" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <button type="submit">העלה קובץ</button>
+  </form>
+
+  <div>
+    <h2>יעד</h2>
+    <div class="progress"><div class="progress-bar" style="width: {{ progress }}%">{{ progress }}%</div></div>
+    {% if bonus_active %}
+    <div class="progress"><div class="progress-bar orange" style="width: {{ bonus_progress }}%">{{ bonus_progress }}% (בונוס)</div></div>
+    {% endif %}
+  </div>
+
+  <div>
+    <h2>סטטיסטיקות</h2>
+    {% for label, count in stats.items() %}
+      <div class="stat-box green">{{ label }}: {{ count }}</div>
+    {% endfor %}
+  </div>
+
+  <h2>הורדת נתונים</h2>
+  <form method="GET" action="/download-log">
+    <button type="submit">הורד לוג</button>
+  </form>
+
+  <h2>הגדרות תגובות</h2>
+  <form id="settings-form" method="POST" action="/update-settings">
+    <button type="button" onclick="copyAllEncouragements()">📋 שכפל הודעות עידוד</button>
+    {% for digit, setting in response_map.items() %}
+      <fieldset style="margin-bottom: 20px;">
+        <legend>הגדרה {{ digit }}</legend>
+        <label>תיאור ההגדרה:
+          <input type="text" name="label_{{ digit }}" value="{{ setting.label }}">
+        </label><br>
+        <label>נדרש שיחה חוזרת:
+          <input type="checkbox" name="callback_{{ digit }}" {% if setting.callback_required %}checked{% endif %}>
+        </label><br>
+        <label>שעות למענה:
+          <input type="number" name="hours_{{ digit }}" value="{{ setting.hours }}">
+        </label><br>
+        <div>
+          <span class="toggle-enc" onclick="toggleEnc('enc_{{ digit }}')">הודעות עידוד</span>
+          <div class="enc-settings" id="enc_{{ digit }}">
+            <textarea name="encouragements_{{ digit }}" rows="2" cols="50">{% for msg in encouragements.get(digit, []) %}{{ msg }}{% if not loop.last %}, {% endif %}{% endfor %}</textarea>
+          </div>
+        </div>
+      </fieldset>
+    {% endfor %}
+    <button type="submit">שמור שינויים</button>
+  </form>
+
+  <h2>הגדרות מערכת</h2>
+  <form method="POST" action="/update-config">
+    <label>מילת הפעלה:
+      <input type="text" name="activation_word" value="{{ activation_word }}">
+    </label><br>
+    <label>ברכת פתיחה:
+      <input type="text" name="greeting_template" value="{{ greeting_template }}">
+    </label><br>
+    <label>תבנית הודעה:
+      <input type="text" name="custom_template" value="{{ template }}">
+    </label><br>
+    <label>יעד ראשי:
+      <input type="number" name="target_goal" value="{{ target_goal }}">
+    </label><br>
+    <label>יעד בונוס:
+      <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
+    </label><br>
+    <label>הפעל יעד בונוס:
+      <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
+    </label><br>
+    <button type="submit">שמור הגדרות</button>
+  </form>
+
+  <script>
+    function copyAllEncouragements() {
+      const firstText = document.querySelector('textarea[name^="encouragements_"]').value;
+      document.querySelectorAll('textarea[name^="encouragements_"]').forEach(el => el.value = firstText);
+    }
+  </script>
 </body>
 </html>
