@@ -56,7 +56,8 @@ def index():
         target_goal=target_goal,
         bonus_goal=bonus_goal,
         bonus_active=bonus_active,
-        stats=stats
+        stats=stats,
+        encouragements=encouragements
     )
 
 @app.route("/telephony")
