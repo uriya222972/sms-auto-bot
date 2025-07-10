@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>התחברות</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      padding: 50px;
+      direction: rtl;
+      text-align: center;
+    }
+    form {
+      background: white;
+      display: inline-block;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    input {
+      padding: 10px;
+      margin: 10px;
+      width: 200px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    input[type="submit"] {
+      background-color: #00796b;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <form method="post">
+    <h2>התחברות למערכת</h2>
+    <input type="text" name="username" placeholder="שם משתמש" required><br>
+    <input type="password" name="password" placeholder="סיסמה" required><br>
+    <input type="submit" value="התחבר">
+  </form>
+</body>
+</html>
