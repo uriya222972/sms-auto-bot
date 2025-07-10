@@ -46,8 +46,6 @@ def save_user_data(data):
     full_data[user] = data
     save_data(full_data)
 
-
-
 @app.route("/save", methods=["POST"])
 @login_required
 def auto_save():
@@ -214,6 +212,6 @@ def get_user_variables():
     }
 
 def save_all():
-        data = get_user_variables()
+    data = get_user_variables()
     data["sent_indices"] = list(data["sent_indices"])
     save_user_data(data)
