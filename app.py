@@ -21,7 +21,15 @@ responses = saved.get("responses", {})
 send_log = saved.get("send_log", {})
 scheduled_retries = saved.get("scheduled_retries", {})
 custom_template = saved.get("custom_template", "יישר כח! המספר הבא אליו צריך להתקשר הוא {next}. תודה!")
-response_map = saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)})
+response_map = saved.get("response_map", {
+    str(i): {
+        "label": f"הגדרה {i}",
+        "callback_required": False,
+        "hours": 0,
+        "followups": []
+    } for i in range(1, 10)
+})
+encouragements = saved.get("encouragements", {})  # new
 activation_word = saved.get("activation_word", "התחל")
 filename = saved.get("filename", "")
 target_goal = saved.get("target_goal", 100)
@@ -30,170 +38,125 @@ bonus_active = saved.get("bonus_active", False)
 name_map = saved.get("name_map", {})
 greeting_template = saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל.")
 
-@app.route("/", methods=["GET", "POST"])
-def root_sms():
-    if request.method == "POST" and "IncomingXML" in request.form:
-        return sms()
-    return home()
-
-@app.route("/upload", methods=["POST"])
-def upload():
-    global rows, sent_indices, phone_map, responses, send_log, scheduled_retries, filename, name_map
-    file = request.files.get("file")
-    if file and file.filename.endswith(".csv"):
-        stream = TextIOWrapper(file.stream, encoding='utf-8')
-        reader = csv.reader(stream)
-        rows = [row[0] for row in reader if row]
-        sent_indices.clear()
-        phone_map.clear()
-        responses.clear()
-        send_log.clear()
-        scheduled_retries.clear()
-        name_map.clear()
-        filename = file.filename
-        save_all()
-        return redirect(url_for("home"))
-    return "Invalid file", 400
-
-@app.route("/append", methods=["POST"])
-def append():
-    global rows, filename
-    file = request.files.get("file")
-    if file and file.filename.endswith(".csv"):
-        stream = TextIOWrapper(file.stream, encoding='utf-8')
-        reader = csv.reader(stream)
-        new_rows = [row[0] for row in reader if row]
-        rows.extend(new_rows)
-        filename = file.filename
-        save_all()
-        return redirect(url_for("home"))
-    return "Invalid file", 400
-
-@app.route("/home", methods=["GET", "POST"])
-def home():
-    global activation_word, custom_template, response_map, greeting_template
-
-    if request.method == "POST":
-        if "update_activation_word" in request.form:
-            activation_word = request.form.get("activation_word", activation_word)
-        if "update_template" in request.form:
-            custom_template = request.form.get("template", custom_template)
-        if "update_greeting_template" in request.form:
-            greeting_template = request.form.get("greeting_template", greeting_template)
-        if "update_response_map" in request.form:
-            for key in response_map:
-                label = request.form.get(f"label_{key}", f"הגדרה {key}")
-                callback = request.form.get(f"callback_{key}") == "on"
-                hours = int(request.form.get(f"hours_{key}", 0)) if callback else 0
-                followups = request.form.get(f"followups_{key}", "").split("\n")
-                followups = [line.strip() for line in followups if line.strip()]
-                response_map[key] = {
-                    "label": label,
-                    "callback_required": callback,
-                    "hours": hours,
-                    "followups": followups
-                }
-        save_all()
-        return redirect(url_for("home"))
-
-    stats = {r["label"]: 0 for r in response_map.values()}
+@app.route("/")
+def index():
+    stats = {}
     for r in responses.values():
-        if "label" in r:
-            stats[r["label"]] = stats.get(r["label"], 0) + 1
-
+        label = r.get("label", "לא ידוע")
+        stats[label] = stats.get(label, 0) + 1
     return render_template("index.html",
-                           rows=rows,
-                           responses=responses,
-                           send_log=send_log,
-                           response_map=response_map,
-                           total_sent=len(sent_indices),
-                           template=custom_template,
-                           activation_word=activation_word,
-                           greeting_template=greeting_template,
-                           filename=filename,
-                           stats=stats,
-                           retry_times={},
-                           target_goal=target_goal,
-                           bonus_goal=bonus_goal,
-                           bonus_active=bonus_active,
-                           name_map=name_map)
+        rows=rows,
+        responses=responses,
+        send_log=send_log,
+        total_sent=len(sent_indices),
+        template=custom_template,
+        response_map=response_map,
+        activation_word=activation_word,
+        filename=filename,
+        target_goal=target_goal,
+        bonus_goal=bonus_goal,
+        bonus_active=bonus_active,
+        stats=stats
+    )
 
-@app.route("/sms", methods=["POST"])
-def sms():
-    global phone_map, responses, send_log, scheduled_retries, sent_indices, name_map
-    try:
-        raw_xml = request.form.get("IncomingXML")
-        root = ET.fromstring(raw_xml)
-        sender = root.findtext("PhoneNumber")
-        message = root.findtext("Message")
+@app.route("/telephony")
+def telephony():
+    return render_template("telephony.html", response_map=response_map)
 
-        if not sender or not message:
-            return "Missing data", 400
+@app.route("/response-options")
+def response_options():
+    return jsonify([{"value": k, "label": v["label"]} for k, v in response_map.items()])
 
-        message = message.strip()
+@app.route("/next-number")
+def next_number():
+    agent = request.args.get("agent")
+    if not agent:
+        return "Missing agent", 400
+    name_map[agent] = agent
+    for i in range(len(rows)):
+        if i not in sent_indices:
+            phone_map.setdefault(agent, []).append(i)
+            sent_indices.add(i)
+            send_log[i] = {
+                "to": agent,
+                "phone": agent,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": "נמסר לטלפן"
+            }
+            save_all()
+            return rows[i]
+    return ""
 
-        if not activation_word:
-            return "Missing activation word", 400
+@app.route("/submit-response", methods=["POST"])
+def submit_response():
+    data = request.get_json()
+    agent = data.get("agent")
+    response = data.get("response")
+    if not agent or not response:
+        return "Missing data", 400
+    for i in reversed(phone_map.get(agent, [])):
+        if i in send_log:
+            label = response_map.get(response, {}).get("label", "לא ידוע")
+            responses[i] = {
+                "message": response,
+                "label": label,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            # Send encouragement if available
+            next_number = ""  # Default
+            for j in range(len(rows)):
+                if j not in sent_indices:
+                    next_number = rows[j]
+                    break
+            messages = encouragements.get(response, [])
+            if messages and next_number:
+                text = random.choice(messages).replace("{next}", next_number)
+                send_sms(agent, text)
+            save_all()
+            return "OK"
+    return "לא נמצא", 400
 
-        if sender not in phone_map:
-            if message != activation_word:
-                return "Ignored", 200
-            headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
-            payload = {"Sender": SENDER, "Message": greeting_template, "Recipients": [{"Phone": sender}]}
-            requests.post(API_URL, headers=headers, json=payload)
-            phone_map[sender] = []
-            return "Greeted", 200
+@app.route("/manual-update", methods=["POST"])
+def manual_update():
+    data = request.get_json()
+    phone = data.get("phone")
+    response = data.get("response")
+    if not phone or not response:
+        return "Missing data", 400
+    for i in range(len(rows)):
+        if rows[i] == phone:
+            responses[i] = {
+                "message": response,
+                "label": response_map.get(response, {}).get("label", "לא ידוע"),
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            send_log[i] = {
+                "to": "עודכן ידנית",
+                "phone": phone,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "message": "עדכון ידני"
+            }
+            sent_indices.add(i)
+            save_all()
+            return "OK"
+    return "לא נמצא", 404
 
-        if sender in phone_map and sender not in name_map:
-            name_map[sender] = message
-            return send_next(sender)
-
-        last_index = None
-        if phone_map[sender]:
-            last_index = phone_map[sender][-1]
-            previous = responses.get(last_index, {}).get("message")
-            if previous != message:
-                label = response_map.get(message, {}).get("label", "")
-                responses[last_index] = {
-                    "message": message,
-                    "label": label,
-                    "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                if message in response_map:
-                    r = response_map[message]
-                    if r["callback_required"] and last_index is not None:
-                        scheduled_retries[last_index] = datetime.now() + timedelta(hours=r["hours"])
-                    if r.get("followups"):
-                        followup_msg = random.choice(r["followups"]).replace("{next}", rows[last_index])
-                        headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
-                        payload = {"Sender": SENDER, "Message": followup_msg, "Recipients": [{"Phone": sender}]}
-                        requests.post(API_URL, headers=headers, json=payload)
-
-        return send_next(sender)
-    except Exception as e:
-        return str(e), 400
-
-def send_next(sender):
-    next_index = 0
-    while next_index < len(rows) and next_index in sent_indices:
-        next_index += 1
-    if next_index < len(rows):
-        next_message = rows[next_index]
-        personalized = custom_template.replace("{next}", next_message)
-        headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
-        payload = {"Sender": SENDER, "Message": personalized, "Recipients": [{"Phone": sender}]}
-        res = requests.post(API_URL, headers=headers, json=payload)
-        res.raise_for_status()
-        send_log[next_index] = {
-            "to": name_map.get(sender, sender),
-            "phone": sender,
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "message": personalized
+def send_sms(phone, text):
+    payload = {
+        "Data": {
+            "Phones": phone,
+            "Sender": SENDER,
+            "Message": text
         }
-        phone_map[sender].append(next_index)
-        sent_indices.add(next_index)
-    save_all()
-    return "OK"
+    }
+    headers = {
+        "Authorization": AUTH_HEADER,
+        "Content-Type": "application/json"
+    }
+    try:
+        requests.post(API_URL, headers=headers, json=payload)
+    except Exception as e:
+        print("שגיאה בשליחת SMS:", e)
 
 def save_all():
     save_data({
@@ -211,5 +174,6 @@ def save_all():
         "bonus_goal": bonus_goal,
         "bonus_active": bonus_active,
         "name_map": name_map,
-        "greeting_template": greeting_template
+        "greeting_template": greeting_template,
+        "encouragements": encouragements
     })
