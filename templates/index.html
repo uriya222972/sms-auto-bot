@@ -2,177 +2,62 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>מערכת SMS אוטומטית</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClickCall</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: linear-gradient(120deg, #e0f7fa, #f1f8e9);
-      color: #333;
-      padding: 20px;
-      direction: rtl;
-    }
-    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .logo-title { font-size: 24px; font-weight: bold; color: #00796b; }
-    .telephony-button { background-color: #6a1b9a; color: white; padding: 10px 16px; border-radius: 12px; text-decoration: none; font-weight: bold; }
-    .telephony-button:hover { background-color: #4a148c; }
-    .section { background: #ffffffcc; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-    .section h2 { margin-top: 0; color: #388e3c; }
-    input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 10px; }
-    input[type="file"] { margin-bottom: 15px; }
-    input[type="submit"], button { background-color: #00796b; color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: bold; }
-    input[type="submit"]:hover, button:hover { background-color: #004d40; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; background-color: #f9fbe7; }
-    th { background-color: #aed581; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    body { font-family: Arial, sans-serif; direction: rtl; margin: 30px; background: #f5f7fa; }
+    h1.logo { color: #2c3e50; font-size: 32px; text-align: right; margin-bottom: 20px; }
+    .goal-bar { background: #ecf0f1; height: 30px; border-radius: 20px; overflow: hidden; margin-bottom: 30px; }
+    .goal-fill { height: 100%; text-align: center; line-height: 30px; color: white; font-weight: bold; }
+    .target { background: #3498db; }
+    .bonus { background: #2ecc71; }
+    .card-container { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 30px; }
+    .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); flex: 1; min-width: 120px; text-align: center; }
+    .card h3 { margin: 0 0 10px; color: #34495e; }
+    .upload-section, .response-section, .controls-section { margin-bottom: 30px; }
+    .inline { display: inline-block; margin-left: 10px; }
     label { font-weight: bold; }
-    .progress-bar { height: 20px; background: #c8e6c9; border-radius: 10px; overflow: hidden; margin-top: 10px; }
-    .progress-bar-inner { height: 100%; background: #388e3c; text-align: center; color: white; line-height: 20px; transition: width 0.3s; }
-    .stats-boxes { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
-    .stats-box { flex: 1 1 120px; background: #fce4ec; border-radius: 12px; padding: 10px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-    .stats-box-title { font-size: 18px; font-weight: bold; color: #ad1457; }
-    .stats-box-value { font-size: 24px; font-weight: bold; }
-    .response-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 5px; font-size: 14px; }
-    .arrow { font-size: 20px; color: #4caf50; margin-left: 8px; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { padding: 10px; border: 1px solid #ddd; text-align: center; }
+    th { background: #bdc3c7; }
+    .btn { padding: 6px 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn:hover { background: #2980b9; }
+    .response-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+    .encouragement-box { margin-right: auto; cursor: pointer; color: #7f8c8d; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <div class="header-bar">
-    <div class="logo-title">📱 מערכת SMS אוטומטית</div>
-    <a href="/telephony" target="_blank" class="telephony-button">פתח ממשק טלפנים</a>
-  </div>
-
-  <div class="section">
-    <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
-      <input type="submit" value="אפס מערכת">
-    </form>
-    <h2>העלאת קובץ CSV</h2>
+  <h1 class="logo">ClickCall</h1>
+  <div class="upload-section">
     <form action="/upload" method="post" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required>
-      <input type="submit" value="העלה קובץ">
+      <label>בחר קובץ:</label>
+      <input type="file" name="file" required>
+      <button type="submit" class="btn">העלה</button>
     </form>
-    {% if filename %}<p><strong>קובץ נבחר:</strong> {{ filename }}</p>{% endif %}
-  </div>
-
-  <div class="section">
-    <h2>ציר יעד</h2>
-    <div class="progress-bar">
-      <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
-        {{ total_sent }} / {{ target_goal }} <span class="arrow">⬆</span>
-      </div>
-    </div>
-    {% if bonus_active %}
-      <div class="progress-bar" style="margin-top: 10px; background: #ffe0b2;">
-        <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
-          {{ total_sent }} / {{ bonus_goal }} (בונוס) <span class="arrow">⬆</span>
-        </div>
-      </div>
+    <form action="/reset" method="post" class="inline">
+      <button type="submit" class="btn">איפוס המערכת</button>
+    </form>
+    {% if filename %}
+    <div style="margin-top: 10px;">הקובץ שהועלה: {{ filename }}</div>
     {% endif %}
   </div>
-
-  <div class="section">
-    <h2>הגדרת הודעות עידוד לפי תגובות</h2>
-    <form method="post">
-      <input type="hidden" name="update_encouragements">
-      <div class="response-grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>ספרה {{ digit }}:</label>
-            <textarea name="encouragements_{{ digit }}" placeholder="כתוב כמה הודעות, כל אחת בשורה נפרדת">{{ config.encouragements | join('\n') }}</textarea>
-            <input type="checkbox" name="copy_to_all_{{ digit }}"> שכפל לכל הספרות
-          </div>
-        {% endfor %}
-      </div>
-      <input type="submit" value="שמור הודעות עידוד">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>סטטיסטיקה לפי תגובה</h2>
-    <div class="stats-boxes">
-      {% for label, count in stats.items() %}
-        <div class="stats-box">
-          <div class="stats-box-title">{{ label }}</div>
-          <div class="stats-box-value">{{ count }}</div>
-        </div>
-      {% endfor %}
+  <div class="goal-bar">
+    <div class="goal-fill target" style="width: {{ (total_sent / target_goal * 100)|round(0) if target_goal else 0 }}%">
+      {{ total_sent }}/{{ target_goal }} יעד
     </div>
+    {% if bonus_active %}
+    <div class="goal-fill bonus" style="width: {{ (total_sent / bonus_goal * 100)|round(0) if bonus_goal else 0 }}">
+      {{ total_sent }}/{{ bonus_goal }} בונוס
+    </div>
+    {% endif %}
   </div>
-
-  <div class="section">
-    <form action="/download">
-      <input type="submit" value="הורד נתונים כ־CSV">
-    </form>
+  <div class="card-container">
+    {% for label, count in stats.items() %}
+    <div class="card">
+      <h3>{{ label }}</h3>
+      <div>{{ count }} תגובות</div>
+    </div>
+    {% endfor %}
   </div>
-
-  <div class="section">
-    <h2>הגדרת מילת הפעלה ובקשת שם</h2>
-    <form method="post">
-      <input type="hidden" name="update_activation_word">
-      <input type="text" name="activation_word" value="{{ activation_word }}" placeholder="למשל: התחלה, היי">
-      <input type="submit" value="שמור">
-    </form>
-    <p>כאשר נשלחת מילת ההפעלה, המערכת תבקש את שם השולח ורק לאחר מכן תשלח את המספר הבא להתקשרות.</p>
-  </div>
-
-  <div class="section">
-    <h2>התאמה אישית של ההודעה</h2>
-    <form method="post">
-      <input type="hidden" name="update_template">
-      <textarea name="template" rows="3" placeholder="יישר כח {name}! המספר הבא הוא {next}...">{{ template }}</textarea>
-      <input type="submit" value="שמור">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>הגדרות תגובה לספרות</h2>
-    <form method="post">
-      <input type="hidden" name="update_response_map">
-      <div class="response-grid">
-        {% for digit, config in response_map.items() %}
-          <div>
-            <label>{{ digit }}:</label>
-            <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם">
-            <label>חזרה:</label>
-            <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
-            <label>שעות:</label>
-            <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" style="width: 50px;">
-          </div>
-        {% endfor %}
-      </div>
-      <input type="submit" value="שמור שינויים">
-    </form>
-  </div>
-
-  <div class="section">
-    <h2>טבלת נתונים</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>יעד</th>
-          <th>הודעה שנשלחה</th>
-          <th>נשלח אל</th>
-          <th>זמן שליחה</th>
-          <th>פירוש תגובה</th>
-          <th>זמן תגובה</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for i in range(rows|length) %}
-          <tr>
-            <td>{{ i + 1 }}</td>
-            <td>{{ name_map.get(rows[i], rows[i]) }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].label if responses[i] is defined }}</td>
-            <td>{{ responses[i].time if responses[i] is defined }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</body>
-</html>
+  <div class="response-section">
+    <h3>הגדרות תגובה:</h3>
