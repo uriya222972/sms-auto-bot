@@ -30,18 +30,23 @@ bonus_goal = saved.get("bonus_goal", 0)
 bonus_active = saved.get("bonus_active", False)
 name_map = saved.get("name_map", {})
 greeting_template = saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל.")
-pending_names = saved.get("pending_names", {})  # טלפונים שממתינים לשם
+pending_names = saved.get("pending_names", {})
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        phone = request.form.get("Phone") or request.json.get("Phone")
-        text = request.form.get("Message") or request.json.get("Message")
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+
+        phone = data.get("Phone")
+        text = data.get("Message")
+
         if not phone or not text:
             return "Missing parameters", 400
 
         if phone in pending_names:
-            # קיבלנו שם, שולחים מספר להתקשרות
             name = text.strip()
             name_map[phone] = name
             del pending_names[phone]
@@ -68,11 +73,11 @@ def index():
 
         return "הודעה לא זוהתה"
 
-    # GET רגיל מחזיר ממשק ניהול
     stats = {}
     for r in responses.values():
         label = r.get("label", "לא ידוע")
         stats[label] = stats.get(label, 0) + 1
+
     return render_template("index.html",
         rows=rows,
         responses=responses,
@@ -91,6 +96,36 @@ def index():
         greeting_template=greeting_template
     )
 
+@app.route("/submit-response", methods=["POST"])
+def submit_response():
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form
+
+    agent = data.get("agent")
+    response = data.get("response")
+    if not agent or not response:
+        return "Missing data", 400
+
+    for i in reversed(phone_map.get(agent, [])):
+        if i in send_log:
+            label = response_map.get(response, {}).get("label", "לא ידוע")
+            responses[i] = {
+                "message": response,
+                "label": label,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+            next_number = next((rows[j] for j in range(len(rows)) if j not in sent_indices), None)
+            messages = encouragements.get(response, [])
+            if messages and next_number:
+                text = random.choice(messages).replace("{next}", next_number)
+                send_sms(agent, text)
+            save_all()
+            return "OK"
+    return "לא נמצא", 400
+
+# שאר הפונקציות לא משתנות - נשמרות כפי שהן
 @app.route("/upload", methods=["POST"])
 def upload():
     global rows, filename
@@ -122,32 +157,6 @@ def reset():
 @app.route("/telephony")
 def telephony():
     return render_template("telephony.html", response_map=response_map)
-
-@app.route("/submit-response", methods=["POST"])
-def submit_response():
-    data = request.get_json()
-    agent = data.get("agent")
-    response = data.get("response")
-    if not agent or not response:
-        return "Missing data", 400
-
-    for i in reversed(phone_map.get(agent, [])):
-        if i in send_log:
-            label = response_map.get(response, {}).get("label", "לא ידוע")
-            responses[i] = {
-                "message": response,
-                "label": label,
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            # עידוד
-            next_number = next((rows[j] for j in range(len(rows)) if j not in sent_indices), None)
-            messages = encouragements.get(response, [])
-            if messages and next_number:
-                text = random.choice(messages).replace("{next}", next_number)
-                send_sms(agent, text)
-            save_all()
-            return "OK"
-    return "לא נמצא", 400
 
 def send_sms(phone, text):
     payload = {
