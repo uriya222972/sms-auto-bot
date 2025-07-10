@@ -1,115 +1,104 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <title>ClickCall - מערכת טלפנייה</title>
-  <style>
-    body { font-family: sans-serif; direction: rtl; padding: 20px; }
-    .stat-box { display: inline-block; padding: 15px; margin: 10px; border-radius: 12px; color: white; font-weight: bold; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .blue { background-color: #3498db; }
-    .green { background-color: #2ecc71; }
-    .orange { background-color: #e67e22; }
-    .progress { height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-    .progress-bar { height: 100%; background: linear-gradient(to right, #00c6ff, #0072ff); text-align: center; color: white; line-height: 20px; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; }
-    h1.logo { font-size: 28px; color: #0072ff; margin: 0; }
-    button { margin-top: 10px; }
-    .enc-settings { margin-top: 5px; padding: 5px; border: 1px dashed #ccc; display: none; }
-    .toggle-enc:hover { cursor: pointer; text-decoration: underline; }
-  </style>
-  <script>
-    function toggleEnc(id) {
-      const el = document.getElementById(id);
-      el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    }
-  </script>
-</head>
-<body>
-  <div class="topbar">
-    <h1 class="logo">ClickCall</h1>
-    <form method="POST" action="/reset" style="display:inline;"><button type="submit">איפוס מערכת</button></form>
-  </div>
+<div style="font-size: 14px; color: #555; text-align: left; margin-bottom: 10px;">
+  משתמש מחובר: <strong>{{ username }}</strong>
+</div>
 
-  <h2>העלאת קובץ טלפונים</h2>
-  <form method="POST" action="/upload" enctype="multipart/form-data">
-    <input type="file" name="file">
-    <button type="submit">העלה קובץ</button>
+<div class="header-bar">
+  <div class="logo-title">📱 מערכת SMS אוטומטית</div>
+  <a href="/telephony" target="_blank" class="telephony-button">פתח ממשק טלפנים</a>
+</div>
+
+<div class="section">
+  <form action="/reset" method="post" onsubmit="return confirm('האם אתה בטוח שברצונך לאפס את המערכת?');">
+    <input type="submit" value="אפס מערכת">
   </form>
-
-  <div>
-    <h2>יעד</h2>
-    <div class="progress"><div class="progress-bar" style="width: {{ progress }}%">{{ progress }}%</div></div>
-    {% if bonus_active %}
-    <div class="progress"><div class="progress-bar orange" style="width: {{ bonus_progress }}%">{{ bonus_progress }}% (בונוס)</div></div>
-    {% endif %}
-  </div>
-
-  <div>
-    <h2>סטטיסטיקות</h2>
-    {% for label, count in stats.items() %}
-      <div class="stat-box green">{{ label }}: {{ count }}</div>
-    {% endfor %}
-  </div>
-
-  <h2>הורדת נתונים</h2>
-  <form method="GET" action="/download-log">
-    <button type="submit">הורד לוג</button>
+  <h2>העלאת קובץ CSV</h2>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv" required>
+    <input type="submit" value="העלה קובץ">
   </form>
+  {% if filename %}<p><strong>קובץ נבחר:</strong> {{ filename }}</p>{% endif %}
+</div>
 
-  <h2>הגדרות תגובות</h2>
-  <form id="settings-form" method="POST" action="/update-settings">
-    <button type="button" onclick="copyAllEncouragements()">📋 שכפל הודעות עידוד</button>
-    {% for digit, setting in response_map.items() %}
-      <fieldset style="margin-bottom: 20px;">
-        <legend>הגדרה {{ digit }}</legend>
-        <label>תיאור ההגדרה:
-          <input type="text" name="label_{{ digit }}" value="{{ setting.label }}">
-        </label><br>
-        <label>נדרש שיחה חוזרת:
-          <input type="checkbox" name="callback_{{ digit }}" {% if setting.callback_required %}checked{% endif %}>
-        </label><br>
-        <label>שעות למענה:
-          <input type="number" name="hours_{{ digit }}" value="{{ setting.hours }}">
-        </label><br>
+<div class="section">
+  <h2>הגדרות תגובה לספרות</h2>
+  <form method="post">
+    <input type="hidden" name="update_response_map">
+    <div class="response-grid">
+      {% for digit, config in response_map.items() %}
         <div>
-          <span class="toggle-enc" onclick="toggleEnc('enc_{{ digit }}')">הודעות עידוד</span>
-          <div class="enc-settings" id="enc_{{ digit }}">
-            <textarea name="encouragements_{{ digit }}" rows="2" cols="50">{% for msg in encouragements.get(digit, []) %}{{ msg }}{% if not loop.last %}, {% endif %}{% endfor %}</textarea>
-          </div>
+          <label>{{ digit }}:</label>
+          <input type="text" name="label_{{ digit }}" value="{{ config.label }}" placeholder="לדוג' תרם">
+          <label>חזרה:</label>
+          <input type="checkbox" name="callback_{{ digit }}" {% if config.callback_required %}checked{% endif %}>
+          <label>שעות:</label>
+          <input type="number" name="hours_{{ digit }}" value="{{ config.hours }}" min="0" style="width: 50px;">
+          <label>הודעות עידוד:</label>
+          <textarea name="encouragements_{{ digit }}">{{ config.encouragements | join('\n') }}</textarea>
         </div>
-      </fieldset>
-    {% endfor %}
-    <button type="submit">שמור שינויים</button>
+      {% endfor %}
+    </div>
+    <input type="submit" value="שמור שינויים">
   </form>
+</div>
 
-  <h2>הגדרות מערכת</h2>
-  <form method="POST" action="/update-config">
-    <label>מילת הפעלה:
-      <input type="text" name="activation_word" value="{{ activation_word }}">
-    </label><br>
-    <label>ברכת פתיחה:
-      <input type="text" name="greeting_template" value="{{ greeting_template }}">
-    </label><br>
-    <label>תבנית הודעה:
-      <input type="text" name="custom_template" value="{{ template }}">
-    </label><br>
-    <label>יעד ראשי:
-      <input type="number" name="target_goal" value="{{ target_goal }}">
-    </label><br>
-    <label>יעד בונוס:
-      <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
-    </label><br>
-    <label>הפעל יעד בונוס:
-      <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
-    </label><br>
-    <button type="submit">שמור הגדרות</button>
+<div class="section">
+  <h2>ציר יעד</h2>
+  <form method="post">
+    <input type="hidden" name="update_target_goals">
+    <label>יעד:</label>
+    <input type="number" name="target_goal" value="{{ target_goal }}">
+    <label>יעד בונוס:</label>
+    <input type="number" name="bonus_goal" value="{{ bonus_goal }}">
+    <label>הפעל בונוס:</label>
+    <input type="checkbox" name="bonus_active" {% if bonus_active %}checked{% endif %}>
+    <input type="submit" value="שמור">
   </form>
+  <div class="progress-bar">
+    <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
+      {{ total_sent }} / {{ target_goal }} <span class="arrow">⬆</span>
+    </div>
+  </div>
+  {% if bonus_active %}
+    <div class="progress-bar" style="margin-top: 10px; background: #ffe0b2;">
+      <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+        {{ total_sent }} / {{ bonus_goal }} (בונוס) <span class="arrow">⬆</span>
+      </div>
+    </div>
+  {% endif %}
+</div>
 
-  <script>
-    function copyAllEncouragements() {
-      const firstText = document.querySelector('textarea[name^="encouragements_"]').value;
-      document.querySelectorAll('textarea[name^="encouragements_"]').forEach(el => el.value = firstText);
-    }
-  </script>
-</body>
-</html>
+<div class="section">
+  <form action="/download">
+    <input type="submit" value="הורד נתונים כ־CSV">
+  </form>
+</div>
+
+<div class="section">
+  <h2>טבלת נתונים</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>יעד</th>
+        <th>הודעה שנשלחה</th>
+        <th>נשלח אל</th>
+        <th>זמן שליחה</th>
+        <th>פירוש תגובה</th>
+        <th>זמן תגובה</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in range(rows|length) %}
+        <tr>
+          <td>{{ i + 1 }}</td>
+          <td>{{ name_map.get(rows[i], rows[i]) }}</td>
+          <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+          <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+          <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+          <td>{{ responses[i].label if responses[i] is defined }}</td>
+          <td>{{ responses[i].time if responses[i] is defined }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
