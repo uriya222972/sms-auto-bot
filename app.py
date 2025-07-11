@@ -54,9 +54,10 @@ def auto_save():
         return "Invalid request", 400
     key = data["key"]
     value = data["value"]
-    if key in globals():
-        globals()[key] = value
-        save_all()
+    vars = get_user_variables()
+    if key in vars:
+        vars[key] = value
+        save_user_data(vars)
         return "Saved"
     return "Unknown key", 400
 
@@ -162,15 +163,16 @@ def index():
 def upload():
     vars = get_user_variables()
     rows = vars["rows"]
-    filename = request.files.get("file").filename
     file = request.files.get("file")
     if not file:
         return "לא נבחר קובץ", 400
+    filename = file.filename
     stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
     csv_input = csv.reader(stream)
     new_numbers = [row[0] for row in csv_input if row]
     rows.extend(new_numbers)
-    save_all()
+    vars["filename"] = filename
+    save_user_data(vars)
     return redirect(url_for("index"))
 
 @app.route("/reset", methods=["POST"])
@@ -185,7 +187,7 @@ def reset():
     vars["scheduled_retries"].clear()
     vars["name_map"].clear()
     vars["pending_names"].clear()
-    save_all()
+    save_user_data(vars)
     return redirect(url_for("index"))
 
 @app.route("/telephony")
