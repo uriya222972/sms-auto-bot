@@ -98,8 +98,6 @@ def root():
     if request.method == "POST":
         if request.form.get("Phone") and request.form.get("Message"):
             return index()
-        elif 'user' in session:
-            return index()
         else:
             return "Unauthorized", 401
     if 'user' in session:
@@ -272,3 +270,4 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
+
