@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, render_template, jsonify, session
+from flask import Flask, request, redirect, url_for, render_template, jsonify, session, flash
 from functools import wraps
 import requests
 import csv
@@ -71,13 +71,17 @@ def root():
 def login():
     error = None
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        hashed = hashlib.sha256(password.encode()).hexdigest()
-        if users.get(username) == hashed:
-            session["user"] = username
-            return redirect(url_for("index"))
-        error = "שם משתמש או סיסמה שגויים"
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if not username or not password:
+            error = "נא להזין שם משתמש וסיסמה"
+        else:
+            hashed = hashlib.sha256(password.encode()).hexdigest()
+            if users.get(username) == hashed:
+                session["user"] = username
+                return redirect(url_for("index"))
+            else:
+                error = "שם משתמש או סיסמה שגויים"
     return render_template("login.html", error=error)
 
 @app.route("/dashboard", methods=["GET", "POST"])
