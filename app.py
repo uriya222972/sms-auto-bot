@@ -166,14 +166,18 @@ def upload():
     file = request.files.get("file")
     if not file:
         return "לא נבחר קובץ", 400
-    filename = file.filename
-    stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
-    csv_input = csv.reader(stream)
-    new_numbers = [row[0] for row in csv_input if row]
-    rows.extend(new_numbers)
-    vars["filename"] = filename
-    save_user_data(vars)
-    return redirect(url_for("index"))
+
+    try:
+        filename = file.filename
+        stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
+        csv_input = csv.reader(stream)
+        new_numbers = [row[0].strip() for row in csv_input if row and len(row) > 0 and row[0].strip()]
+        rows.extend(new_numbers)
+        vars["filename"] = filename
+        save_user_data(vars)
+        return redirect(url_for("index"))
+    except Exception as e:
+        return f"שגיאה בהעלאת הקובץ: {e}", 500
 
 @app.route("/reset", methods=["POST"])
 @login_required
