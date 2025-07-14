@@ -176,8 +176,8 @@
     <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
   </div>
   <div style="display:flex; gap:10px;">
-    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
-    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+    <a href="{{ url_for('telephony') }}" target="_blank" class="telephony-button">ממשק טלפנים</a>
+    <a href="{{ url_for('view_stats') }}" target="_blank" class="telephony-button">תצוגה</a>
   </div>
 </div>
       <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
