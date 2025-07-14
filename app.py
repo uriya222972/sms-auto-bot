@@ -17,8 +17,10 @@ SENDER = "0001"
 
 # משתמשים לדוגמה
 users = {
-    'admin': hashlib.sha256('1234'.encode()).hexdigest()
+    'admin': hashlib.sha256('1234'.encode()).hexdigest(),
+    '22uriya22': hashlib.sha256('972uriya'.encode()).hexdigest()
 }
+
 
 def login_required(f):
     @wraps(f)
@@ -28,23 +30,33 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if session.get('user') != 'admin':
+        if session.get('user') != '22uriya22':
             return "גישה חסומה", 403
         return f(*args, **kwargs)
     return decorated_function
 
+
 def load_user_data():
     user = session.get('user', 'default')
     return load_data().get(user, {})
+
 
 def save_user_data(data):
     user = session.get('user', 'default')
     full_data = load_data()
     full_data[user] = data
     save_data(full_data)
+
+
+@app.route("/admin")
+@admin_required
+def admin_panel():
+    return render_template("admin.html")
+
 
 @app.route("/save", methods=["POST"])
 @login_required
@@ -61,11 +73,13 @@ def auto_save():
         return "Saved"
     return "Unknown key", 400
 
+
 @app.route("/", methods=["GET", "POST"])
 def root():
     if request.method == "POST":
         return index()
     return redirect(url_for('login'))
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -79,10 +93,13 @@ def login():
             hashed = hashlib.sha256(password.encode()).hexdigest()
             if users.get(username) == hashed:
                 session["user"] = username
+                if username == '22uriya22':
+                    return redirect(url_for("admin_panel"))
                 return redirect(url_for("index"))
             else:
                 error = "שם משתמש או סיסמה שגויים"
     return render_template("login.html", error=error)
+
 
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
@@ -160,7 +177,10 @@ def index():
         label = r.get("label", "לא ידוע")
         stats[label] = stats.get(label, 0) + 1
 
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template)
+    percentage = round((len(sent_indices) / target_goal) * 100, 2) if target_goal else 0
+
+    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template, percentage=percentage)
+
 
 @app.route("/upload", methods=["POST"])
 @login_required
@@ -183,6 +203,7 @@ def upload():
     except Exception as e:
         return f"שגיאה בהעלאת הקובץ: {e}", 500
 
+
 @app.route("/reset", methods=["POST"])
 @login_required
 def reset():
@@ -198,11 +219,13 @@ def reset():
     save_user_data(vars)
     return redirect(url_for("index"))
 
+
 @app.route("/telephony")
 @login_required
 def telephony():
     vars = get_user_variables()
     return render_template("telephony.html", response_map=vars["response_map"])
+
 
 def send_sms(phone, text):
     payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
@@ -211,6 +234,7 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
+
 
 def get_user_variables():
     saved = load_user_data()
@@ -233,6 +257,7 @@ def get_user_variables():
         "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
         "pending_names": saved.get("pending_names", {})
     }
+
 
 def save_all():
     data = get_user_variables()
