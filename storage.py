@@ -9,6 +9,10 @@ def save_data(data):
 
 def load_data():
     if os.path.exists(STORAGE_FILE):
-        with open(STORAGE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(STORAGE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print("⚠️ קובץ JSON לא תקין – נטען נתונים ריקים.")
+            return {}
     return {}
