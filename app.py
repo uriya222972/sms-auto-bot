@@ -15,12 +15,10 @@ API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
-# משתמשים לדוגמה
 users = {
     'admin': hashlib.sha256('1234'.encode()).hexdigest(),
     '22uriya22': hashlib.sha256('972uriya'.encode()).hexdigest()
 }
-
 
 def login_required(f):
     @wraps(f)
@@ -30,7 +28,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -39,11 +36,9 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
 def load_user_data():
     user = session.get('user', 'default')
     return load_data().get(user, {})
-
 
 def save_user_data(data):
     user = session.get('user', 'default')
@@ -51,12 +46,37 @@ def save_user_data(data):
     full_data[user] = data
     save_data(full_data)
 
+def get_user_variables():
+    saved = load_user_data()
+    return {
+        "rows": saved.get("rows", []),
+        "sent_indices": set(saved.get("sent_indices", [])),
+        "phone_map": saved.get("phone_map", {}),
+        "responses": saved.get("responses", {}),
+        "send_log": saved.get("send_log", {}),
+        "scheduled_retries": saved.get("scheduled_retries", {}),
+        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}."),
+        "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
+        "encouragements": saved.get("encouragements", {}),
+        "activation_word": saved.get("activation_word", "התחל"),
+        "filename": saved.get("filename", ""),
+        "target_goal": saved.get("target_goal", 100),
+        "bonus_goal": saved.get("bonus_goal", 0),
+        "bonus_active": saved.get("bonus_active", False),
+        "name_map": saved.get("name_map", {}),
+        "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
+        "pending_names": saved.get("pending_names", {})
+    }
+
+def save_all():
+    data = get_user_variables()
+    data["sent_indices"] = list(data["sent_indices"])
+    save_user_data(data)
 
 @app.route("/admin")
 @admin_required
 def admin_panel():
     return render_template("admin.html")
-
 
 @app.route("/save", methods=["POST"])
 @login_required
@@ -73,7 +93,6 @@ def auto_save():
         return "Saved"
     return "Unknown key", 400
 
-
 @app.route("/", methods=["GET", "POST"])
 def root():
     if request.method == "POST":
@@ -84,7 +103,6 @@ def root():
         else:
             return "Unauthorized", 401
     return redirect(url_for('login'))
-
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -104,7 +122,6 @@ def login():
             else:
                 error = "שם משתמש או סיסמה שגויים"
     return render_template("login.html", error=error)
-
 
 @app.route("/dashboard", methods=["GET", "POST"])
 @login_required
@@ -186,7 +203,6 @@ def index():
 
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template, percentage=percentage)
 
-
 @app.route("/view")
 @login_required
 def view_stats():
@@ -203,7 +219,6 @@ def view_stats():
     percentage = round((sent_count / target_goal) * 100, 2) if target_goal else 0
 
     return render_template("view.html", stats=stats, percentage=percentage, target_goal=target_goal, sent_count=sent_count)
-
 
 @app.route("/upload", methods=["POST"])
 @login_required
@@ -227,7 +242,6 @@ def upload():
     except Exception as e:
         return f"שגיאה בהעלאת הקובץ: {e}", 500
 
-
 @app.route("/reset", methods=["POST"])
 @login_required
 def reset():
@@ -243,13 +257,11 @@ def reset():
     save_user_data(vars)
     return redirect(url_for("index"))
 
-
 @app.route("/telephony")
 @login_required
 def telephony():
     vars = get_user_variables()
     return render_template("telephony.html", response_map=vars["response_map"])
-
 
 def send_sms(phone, text):
     payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
@@ -258,32 +270,3 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
-
-
-def get_user_variables():
-    saved = load_user_data()
-    return {
-        "rows": saved.get("rows", []),
-        "sent_indices": set(saved.get("sent_indices", [])),
-        "phone_map": saved.get("phone_map", {}),
-        "responses": saved.get("responses", {}),
-        "send_log": saved.get("send_log", {}),
-        "scheduled_retries": saved.get("scheduled_retries", {}),
-        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}."),
-        "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
-        "encouragements": saved.get("encouragements", {}),
-        "activation_word": saved.get("activation_word", "התחל"),
-        "filename": saved.get("filename", ""),
-        "target_goal": saved.get("target_goal", 100),
-        "bonus_goal": saved.get("bonus_goal", 0),
-        "bonus_active": saved.get("bonus_active", False),
-        "name_map": saved.get("name_map", {}),
-        "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
-        "pending_names": saved.get("pending_names", {})
-    }
-
-
-def save_all():
-    data = get_user_variables()
-    data["sent_indices"] = list(data["sent_indices"])
-    save_user_data(data)
