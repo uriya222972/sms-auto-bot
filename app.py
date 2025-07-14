@@ -182,6 +182,24 @@ def index():
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template, percentage=percentage)
 
 
+@app.route("/view")
+@login_required
+def view_stats():
+    vars = get_user_variables()
+    responses = vars["responses"]
+    target_goal = vars["target_goal"]
+    sent_count = len(vars["sent_indices"])
+
+    stats = {}
+    for r in responses.values():
+        label = r.get("label", "לא ידוע")
+        stats[label] = stats.get(label, 0) + 1
+
+    percentage = round((sent_count / target_goal) * 100, 2) if target_goal else 0
+
+    return render_template("view.html", stats=stats, percentage=percentage, target_goal=target_goal, sent_count=sent_count)
+
+
 @app.route("/upload", methods=["POST"])
 @login_required
 def upload():
