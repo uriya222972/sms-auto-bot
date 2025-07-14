@@ -120,13 +120,52 @@
     }
     
     document.addEventListener("DOMContentLoaded", function() {
-      $('#datatable').DataTable({
-        language: {
-          url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
-        },
-        pageLength: 50,
-        order: []
+  const table = $('#datatable').DataTable({
+    language: {
+      url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
+    },
+    pageLength: 50,
+    order: [],
+    initComplete: function () {
+      this.api().columns([5]).every(function () {
+        var column = this;
+        var select = $('<select><option value="">🔍 סינון תגובה</option></select>')
+          .appendTo($(column.header()).empty())
+          .on('change', function () {
+            var val = $.fn.dataTable.util.escapeRegex($(this).val());
+            column.search(val ? '^'+val+'$' : '', true, false).draw();
+          });
+        column.data().unique().sort().each(function (d) {
+          if (d) select.append('<option value="'+d+'">'+d+'</option>');
+        });
       });
+    }
+  });
+
+  // גרף התקדמות
+  const total = {{ total_sent }};
+  const target = {{ target_goal }};
+  const bonus = {{ bonus_goal }};
+
+  const ctx = document.getElementById('progressChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['בוצע', 'נשאר'],
+      datasets: [{
+        data: [total, Math.max(target - total, 0)],
+        backgroundColor: ['#66bb6a', '#c8e6c9'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+});
     });
   </script>
 </head>
@@ -252,5 +291,11 @@
       </table>
     </details>
   </div>
+<div class="section">
+  <h2>📈 גרף התקדמות</h2>
+  <canvas id="progressChart" width="400" height="200"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
