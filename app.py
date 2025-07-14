@@ -198,6 +198,7 @@ def upload():
         new_numbers = [row[0].strip() for row in csv_input if row and len(row) > 0 and row[0].strip()]
         rows.extend(new_numbers)
         vars["filename"] = filename
+        vars["sent_indices"] = list(vars.get("sent_indices", set()))
         save_user_data(vars)
         return redirect(url_for("index"))
     except Exception as e:
