@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>ClickCall - מערכת טלפנייה</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
   <style>
     body {
       margin: 0;
@@ -107,6 +108,8 @@
       background-color: #e0f2f1;
     }
   </style>
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script>
     function saveValue(key, value) {
       fetch('/save', {
@@ -115,6 +118,16 @@
         body: JSON.stringify({ key, value })
       });
     }
+    
+    document.addEventListener("DOMContentLoaded", function() {
+      $('#datatable').DataTable({
+        language: {
+          url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
+        },
+        pageLength: 50,
+        order: []
+      });
+    });
   </script>
 </head>
 <body>
@@ -123,123 +136,121 @@
       <div class="logo-title">📱 ClickCall</div>
       <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
     </div>
-    <a href="/telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
+    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
   </div>
 
   <div class="section">
-  <details open>
-    <summary>הגדרות פתיחה</summary>
-    <label>מילת הפעלה:</label>
-    <input type="text" value="{{ activation_word }}" onchange="saveValue('activation_word', this.value)">
-
-    <label>הודעת פתיחה:</label>
-    <textarea rows="2" onchange="saveValue('greeting_template', this.value)">{{ greeting_template }}</textarea>
-  </details>
+  <h2>🔑 מילת הפעלה והודעת פתיחה</h2>
+  <label>מילת הפעלה:</label>
+  <input type="text" value="{{ activation_word }}" onchange="saveValue('activation_word', this.value)">
+  <label>הודעת פתיחה:</label>
+  <textarea rows="2" onchange="saveValue('greeting_template', this.value)">{{ greeting_template }}</textarea>
 </div>
 
 <div class="section">
   <details>
-    <summary>הגדרות יעד</summary>
+    <summary>🎯 יעד ובונוס</summary>
     <label>יעד:</label>
     <input type="number" value="{{ target_goal }}" onchange="saveValue('target_goal', this.value)">
+    <div class="progress-bar">
+      <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
+        <span class="arrow">⬆</span>{{ total_sent }} / {{ target_goal }}
+      </div>
+    </div>
 
     <label>יעד בונוס:</label>
     <input type="number" value="{{ bonus_goal }}" onchange="saveValue('bonus_goal', this.value)">
-  </details>
-
-  <div class="progress-bar">
-    <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
-      🎯 {{ total_sent }} / {{ target_goal }}
-    </div>
-  </div>
-  {% if bonus_active %}
-    <div class="progress-bar" style="margin-top: 10px; background: #ffe0b2;">
+    {% if bonus_active %}
+    <div class="progress-bar" style="background: #ffe0b2;">
       <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
-        ⭐ {{ total_sent }} / {{ bonus_goal }} (בונוס)
+        🎁 {{ total_sent }} / {{ bonus_goal }}
       </div>
     </div>
-  {% endif %}
-</div>
-
-<div class="section">
-  <details open>
-    <summary>סטטיסטיקה לפי תגובה</summary>
-    <ul>
-      {% for label, count in stats.items() %}
-        <li>{{ label }}: {{ count }}</li>
-      {% endfor %}
-    </ul>
+    {% endif %}
   </details>
 </div>
 
 <div class="section">
-  <details>
-    <summary>הגדרות תגובה לספרות</summary>
-    {% for digit, config in response_map.items() %}
-      <details style="margin-bottom: 12px">
-        <summary>תגובה {{ digit }}</summary>
-        <label>תיאור:</label>
-        <input type="text" value="{{ config.label }}" onchange="saveValue('response_map.{{ digit }}.label', this.value)">
-
-        <label>דורש חזרה:</label>
-        <input type="checkbox" {% if config.callback_required %}checked{% endif %} onchange="saveValue('response_map.{{ digit }}.callback_required', this.checked)">
-
-        <label>השהיה (שעות):</label>
-        <input type="number" value="{{ config.hours }}" min="0" onchange="saveValue('response_map.{{ digit }}.hours', this.value)">
-
-        <label>הודעות עידוד:</label>
-        <textarea rows="2" onchange="saveValue('encouragements.{{ digit }}', this.value)">{{ encouragements.get(digit, ['יישר כח! המספר הבא הוא {next}'])[0] }}</textarea>
-      </details>
+  <h2>📊 סטטיסטיקות לפי תגובה</h2>
+  <div class="stats-boxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+    {% for label, count in stats.items() %}
+    <div style="flex:1 1 120px; background:#f1f8e9; border-radius:10px; padding:10px; text-align:center;">
+      <div style="font-weight:bold; color:#558b2f;">{{ label }}</div>
+      <div style="font-size:20px;">{{ count }}</div>
+    </div>
     {% endfor %}
-    <button onclick="fetch('/copy-encouragements', {method:'POST'})">שכפל עידוד לכל התגובות</button>
-  </details>
-</div>
-
-<div class="section">
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <label>העלאת קובץ CSV:</label>
-    <input type="file" name="file" accept=".csv" required>
-    <input type="submit" value="העלה קובץ">
-  </form>
-  <form action="/reset" method="post" onsubmit="return confirm('האם לאפס את המערכת?');">
-    <input type="submit" value="איפוס מערכת">
-  </form>
+  </div>
 </div>
 
 <div class="section">
   <details>
-    <summary>📋 פתיחת טבלת נתונים</summary>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>יעד</th>
-          <th>הודעה</th>
-          <th>אל</th>
-          <th>שעה</th>
-          <th>פירוש</th>
-          <th>שעת תגובה</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for i in range(rows|length) %}
-          <tr>
-            <td>{{ i+1 }}</td>
-            <td>{{ name_map.get(rows[i], rows[i]) }}</td>
-            <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-            <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-            <td>{{ responses[i].label if responses[i] is defined }}</td>
-            <td>{{ responses[i].time if responses[i] is defined }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <form action="/download">
-      <input type="submit" value="📥 הורד נתונים כ־CSV">
-    </form>
+    <summary>⚙️ הגדרות תגובות</summary>
+    <div class="response-grid" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 10px;">
+      {% for digit, config in response_map.items() %}
+        <div style="border:1px solid #ccc; border-radius:10px; padding:10px;">
+          <label>ספרה: {{ digit }}</label>
+          <input type="text" placeholder="לדוג' תרם" value="{{ config.label }}" onchange="saveValue('response_map.{{ digit }}.label', this.value)">
+          <label>חזרה:</label>
+          <input type="checkbox" {% if config.callback_required %}checked{% endif %} onchange="saveValue('response_map.{{ digit }}.callback_required', this.checked)">
+          <label>שעות המתנה:</label>
+          <input type="number" value="{{ config.hours }}" min="0" onchange="saveValue('response_map.{{ digit }}.hours', this.value)">
+          <label>✉️ הודעות עידוד:</label>
+          <textarea rows="2" onchange="saveValue('encouragements.{{ digit }}', this.value)">{{ encouragements[digit]|join('
+') if encouragements[digit] is defined }}</textarea>
+        </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="copyEncouragements()">📎 שכפל את ההודעות לכל התגובות</button>
+    </div>
   </details>
 </div>
 
+<script>
+  function copyEncouragements() {
+    const first = document.querySelector('.response-grid textarea')?.value;
+    if (!first) return;
+    document.querySelectorAll('.response-grid textarea').forEach(t => {
+      t.value = first;
+      const digit = t.closest('div').querySelector('label').textContent.replace('ספרה: ', '').trim();
+      saveValue(`encouragements.${digit}`, first);
+    });
+  }
+</script>
+
+  <div class="section">
+    <details open>
+      <summary>📋 פתיחת טבלת נתונים</summary>
+      <form action="/download">
+        <input type="submit" value="📥 הורד נתונים כ־CSV">
+      </form>
+      <table id="datatable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>יעד</th>
+            <th>הודעה</th>
+            <th>אל</th>
+            <th>שעה</th>
+            <th>פירוש</th>
+            <th>שעת תגובה</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in range(rows|length) %}
+            <tr {% if i not in sent_indices %}style="background:#fffde7"{% endif %}>
+              <td>{{ i+1 }}</td>
+              <td>{{ name_map.get(rows[i], rows[i]) }}</td>
+              <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+              <td>{{ responses[i].label if responses[i] is defined }}</td>
+              <td>{{ responses[i].time if responses[i] is defined }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </div>
 </body>
 </html>
