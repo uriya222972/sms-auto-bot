@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ClickCall - מערכת טלפנייה</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(to right, #f0f4f8, #ffffff);
+      color: #333;
+      direction: rtl;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .number-display {
+      font-size: 48px;
+      font-weight: bold;
+      color: #3e3d4c;
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .number-display img {
+      height: 80px;
+    }
+    .label {
+      font-size: 16px;
+      color: #888;
+      margin-top: 10px;
+    }
+    .confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <div class="number-display">
+    <img src="/static/arrow-chart.png" alt="chart">
+    <span>₪ {{ "{:,}".format(total_sent * 1) }}</span>
+  </div>
+  <div class="label">סה"כ שיחות שבוצעו</div>
+
+  <div class="stats-boxes" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 40px; max-width: 800px;">
+    {% for label, count in stats.items() %}
+    <div style="flex:1 1 120px; background:#f1f8e9; border-radius:10px; padding:10px; text-align:center;">
+      <div style="font-weight:bold; color:#558b2f;">{{ label }}</div>
+      <div style="font-size:20px;">{{ count }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if total_sent >= target_goal %}
+  <canvas class="confetti"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/confetti-js@0.0.18/dist/index.min.js"></script>
+  <script>
+    const confettiSettings = { target: 'canvas.confetti', max: 150, size: 1.2 };
+    const confetti = new ConfettiGenerator(confettiSettings);
+    confetti.render();
+  </script>
+  {% endif %}
+</body>
+</html>
