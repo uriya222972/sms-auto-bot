@@ -77,7 +77,12 @@ def auto_save():
 @app.route("/", methods=["GET", "POST"])
 def root():
     if request.method == "POST":
-        return index()
+        if request.form.get("Phone") and request.form.get("Message"):
+            return index()
+        elif 'user' in session:
+            return index()
+        else:
+            return "Unauthorized", 401
     return redirect(url_for('login'))
 
 
