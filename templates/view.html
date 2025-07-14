@@ -42,14 +42,45 @@
       pointer-events: none;
       z-index: 9999;
     }
+    .progress-bar {
+      height: 24px;
+      background: #c8e6c9;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 20px;
+      width: 80%;
+      max-width: 600px;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: #388e3c;
+      color: #fff;
+      text-align: center;
+      line-height: 24px;
+      transition: width 0.3s;
+    }
   </style>
 </head>
 <body>
   <div class="number-display">
     <img src="/static/arrow-chart.png" alt="chart">
-    <span>₪ {{ "{:,}".format(total_sent * 1) }}</span>
+    <span>{{ total_sent }}</span>
   </div>
   <div class="label">סה"כ שיחות שבוצעו</div>
+
+  <div class="progress-bar">
+    <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
+      {{ total_sent }} / {{ target_goal }}
+    </div>
+  </div>
+
+  {% if bonus_active %}
+  <div class="progress-bar" style="background: #ffe0b2;">
+    <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+      🎁 {{ total_sent }} / {{ bonus_goal }}
+    </div>
+  </div>
+  {% endif %}
 
   <div class="stats-boxes" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 40px; max-width: 800px;">
     {% for label, count in stats.items() %}
@@ -61,12 +92,13 @@
   </div>
 
   {% if total_sent >= target_goal %}
-  <canvas class="confetti"></canvas>
-  <script src="https://cdn.jsdelivr.net/npm/confetti-js@0.0.18/dist/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
   <script>
-    const confettiSettings = { target: 'canvas.confetti', max: 150, size: 1.2 };
-    const confetti = new ConfettiGenerator(confettiSettings);
-    confetti.render();
+    setTimeout(() => {
+      for (let i = 0; i < 5; i++) {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+    }, 500);
   </script>
   {% endif %}
 </body>
