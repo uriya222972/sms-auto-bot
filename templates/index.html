@@ -181,9 +181,7 @@
   </div>
 </div>
       <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
-    </div>
-    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
-    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+  </div>
   </div>
 
   <div class="section">
@@ -280,7 +278,7 @@
       <form action="/download">
         <input type="submit" value="📥 הורד נתונים כ־CSV">
       </form>
-      <table id="datatable">
+      <table id="datatable" class="display nowrap" style="width:100%">
         <thead>
           <tr>
             <th>#</th>
