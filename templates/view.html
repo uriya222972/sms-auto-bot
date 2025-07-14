@@ -64,20 +64,20 @@
 <body>
   <div class="number-display">
     <img src="/static/arrow-chart.png" alt="chart">
-    <span>{{ total_sent }}</span>
+    <span>{{ sent_count }}</span>
   </div>
   <div class="label">סה"כ שיחות שבוצעו</div>
 
   <div class="progress-bar">
     <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
-      {{ total_sent }} / {{ target_goal }}
+      {{ sent_count }} / {{ target_goal }}
     </div>
   </div>
 
   {% if bonus_active %}
   <div class="progress-bar" style="background: #ffe0b2;">
     <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
-      🎁 {{ total_sent }} / {{ bonus_goal }}
+      🎁 {{ sent_count }} / {{ bonus_goal }}
     </div>
   </div>
   {% endif %}
