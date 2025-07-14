@@ -102,6 +102,8 @@ def root():
             return index()
         else:
             return "Unauthorized", 401
+    if 'user' in session:
+        return redirect(url_for("index"))
     return redirect(url_for('login'))
 
 @app.route("/login", methods=["GET", "POST"])
