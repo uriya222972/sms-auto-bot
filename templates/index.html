@@ -110,6 +110,7 @@
   </style>
   <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     function saveValue(key, value) {
       fetch('/save', {
@@ -118,201 +119,141 @@
         body: JSON.stringify({ key, value })
       });
     }
-    
+
     document.addEventListener("DOMContentLoaded", function() {
-  const table = $('#datatable').DataTable({
-    language: {
-      url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
-    },
-    pageLength: 50,
-    order: [],
-    initComplete: function () {
-      this.api().columns([5]).every(function () {
-        var column = this;
-        var select = $('<select><option value="">🔍 סינון תגובה</option></select>')
-          .appendTo($(column.header()).empty())
-          .on('change', function () {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            column.search(val ? '^'+val+'$' : '', true, false).draw();
+      const table = $('#datatable').DataTable({
+        language: {
+          url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
+        },
+        pageLength: 50,
+        order: [],
+        initComplete: function () {
+          this.api().columns([5]).every(function () {
+            var column = this;
+            var select = $('<select><option value="">🔍 סינון תגובה</option></select>')
+              .appendTo($(column.header()).empty())
+              .on('change', function () {
+                var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                column.search(val ? '^'+val+'$' : '', true, false).draw();
+              });
+            column.data().unique().sort().each(function (d) {
+              if (d) select.append('<option value="'+d+'">'+d+'</option>');
+            });
           });
-        column.data().unique().sort().each(function (d) {
-          if (d) select.append('<option value="'+d+'">'+d+'</option>');
-        });
+        }
       });
-    }
-  });
 
-  // גרף התקדמות
-  const total = {{ total_sent }};
-  const target = {{ target_goal }};
-  const bonus = {{ bonus_goal }};
-
-  const ctx = document.getElementById('progressChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['בוצע', 'נשאר'],
-      datasets: [{
-        data: [total, Math.max(target - total, 0)],
-        backgroundColor: ['#66bb6a', '#c8e6c9'],
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom' }
-      }
-    }
-  });
-});
+      // גרף התקדמות
+      const total = {{ total_sent }};
+      const target = {{ target_goal }};
+      const ctx = document.getElementById('progressChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['בוצע', 'נשאר'],
+          datasets: [{
+            data: [total, Math.max(target - total, 0)],
+            backgroundColor: ['#66bb6a', '#c8e6c9'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
     });
   </script>
 </head>
 <body>
   <div class="header-bar">
-  <div>
-    <div class="logo-title">📱 ClickCall</div>
-    <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
-  </div>
-  <div style="display:flex; gap:10px;">
-    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
-    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
-  </div>
-</div>
+    <div>
+      <div class="logo-title">📱 ClickCall</div>
       <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
     </div>
-    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
-    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+    <div style="display:flex; gap:10px;">
+      <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
+      <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+      <a href="/download" class="telephony-button">📥 הורד נתונים</a>
+    </div>
   </div>
 
   <div class="section">
-  <h2>📤 העלאת קובץ טלפונים</h2>
-  <form method="POST" action="/upload" enctype="multipart/form-data">
-    <label>בחר קובץ CSV:</label>
-    <input type="file" name="file" accept=".csv">
-    <input type="submit" value="העלה">
-  </form>
-</div>
+    <h2>העלאת קובץ CSV</h2>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".csv" required>
+      <input type="submit" value="העלה קובץ">
+    </form>
+    {% if filename %}<p><strong>קובץ נבחר:</strong> {{ filename }}</p>{% endif %}
+  </div>
 
-<div class="section">
-  <h2>🔑 מילת הפעלה והודעת פתיחה</h2>
-  <label>מילת הפעלה:</label>
-  <input type="text" value="{{ activation_word }}" onchange="saveValue('activation_word', this.value)">
-  <label>הודעת פתיחה:</label>
-  <textarea rows="2" onchange="saveValue('greeting_template', this.value)">{{ greeting_template }}</textarea>
-</div>
-
-<div class="section">
-  <details>
-    <summary>🎯 יעד ובונוס</summary>
-    <label>יעד:</label>
-    <input type="number" value="{{ target_goal }}" onchange="saveValue('target_goal', this.value)">
+  <div class="section">
+    <h2>התקדמות ליעד</h2>
+    <canvas id="progressChart" width="300" height="300"></canvas>
     <div class="progress-bar">
       <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
-        <span class="arrow">⬆</span>{{ total_sent }} / {{ target_goal }}
+        {{ total_sent }} / {{ target_goal }}<span class="arrow">⬆</span>
       </div>
     </div>
-
-    <label>יעד בונוס:</label>
-    <input type="number" value="{{ bonus_goal }}" onchange="saveValue('bonus_goal', this.value)">
     {% if bonus_active %}
-    <div class="progress-bar" style="background: #ffe0b2;">
-      <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
-        🎁 {{ total_sent }} / {{ bonus_goal }}
-      </div>
-    </div>
-    {% endif %}
-  </details>
-</div>
-
-<div class="section">
-  <h2>📊 סטטיסטיקות לפי תגובה</h2>
-  <div class="stats-boxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
-    {% for label, count in stats.items() %}
-    <div style="flex:1 1 120px; background:#f1f8e9; border-radius:10px; padding:10px; text-align:center;">
-      <div style="font-weight:bold; color:#558b2f;">{{ label }}</div>
-      <div style="font-size:20px;">{{ count }}</div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-
-<div class="section">
-  <details>
-    <summary>⚙️ הגדרות תגובות</summary>
-    <div class="response-grid" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 10px;">
-      {% for digit, config in response_map.items() %}
-        <div style="border:1px solid #ccc; border-radius:10px; padding:10px;">
-          <label>ספרה: {{ digit }}</label>
-          <input type="text" placeholder="לדוג' תרם" value="{{ config.label }}" onchange="saveValue('response_map.{{ digit }}.label', this.value)">
-          <label>חזרה:</label>
-          <input type="checkbox" {% if config.callback_required %}checked{% endif %} onchange="saveValue('response_map.{{ digit }}.callback_required', this.checked)">
-          <label>שעות המתנה:</label>
-          <input type="number" value="{{ config.hours }}" min="0" onchange="saveValue('response_map.{{ digit }}.hours', this.value)">
-          <label>✉️ הודעות עידוד:</label>
-          <textarea rows="2" onchange="saveValue('encouragements.{{ digit }}', this.value)">{{ encouragements[digit]|join('
-') if encouragements[digit] is defined }}</textarea>
+      <div class="progress-bar" style="background: #ffe0b2;">
+        <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+          {{ total_sent }} / {{ bonus_goal }} (בונוס)
         </div>
-      {% endfor %}
-    </div>
-    <div style="margin-top:10px;">
-      <button onclick="copyEncouragements()">📎 שכפל את ההודעות לכל התגובות</button>
-    </div>
-  </details>
-</div>
-
-<script>
-  function copyEncouragements() {
-    const first = document.querySelector('.response-grid textarea')?.value;
-    if (!first) return;
-    document.querySelectorAll('.response-grid textarea').forEach(t => {
-      t.value = first;
-      const digit = t.closest('div').querySelector('label').textContent.replace('ספרה: ', '').trim();
-      saveValue(`encouragements.${digit}`, first);
-    });
-  }
-</script>
+      </div>
+    {% endif %}
+  </div>
 
   <div class="section">
-    <details open>
-      <summary>📋 פתיחת טבלת נתונים</summary>
-      <form action="/download">
-        <input type="submit" value="📥 הורד נתונים כ־CSV">
-      </form>
-      <table id="datatable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>יעד</th>
-            <th>הודעה</th>
-            <th>אל</th>
-            <th>שעה</th>
-            <th>פירוש</th>
-            <th>שעת תגובה</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for i in range(rows|length) %}
-            <tr {% if i not in sent_indices %}style="background:#fffde7"{% endif %}>
-              <td>{{ i+1 }}</td>
-              <td>{{ name_map.get(rows[i], rows[i]) }}</td>
-              <td>{{ send_log[i].message if send_log[i] is defined }}</td>
-              <td>{{ send_log[i].to if send_log[i] is defined }}</td>
-              <td>{{ send_log[i].time if send_log[i] is defined }}</td>
-              <td>{{ responses[i].label if responses[i] is defined }}</td>
-              <td>{{ responses[i].time if responses[i] is defined }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </details>
+    <h2>סטטיסטיקה לפי תגובה</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>תגובה</th>
+          <th>כמות</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for label, count in stats.items() %}
+        <tr>
+          <td>{{ label }}</td>
+          <td>{{ count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-<div class="section">
-  <h2>📈 גרף התקדמות</h2>
-  <canvas id="progressChart" width="400" height="200"></canvas>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <div class="section">
+    <h2>טבלת נתונים</h2>
+    <table id="datatable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>יעד</th>
+          <th>הודעה</th>
+          <th>נשלח אל</th>
+          <th>זמן שליחה</th>
+          <th>פירוש תגובה</th>
+          <th>זמן תגובה</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(rows|length) %}
+        <tr>
+          <td>{{ i + 1 }}</td>
+          <td>{{ name_map.get(rows[i], rows[i]) }}</td>
+          <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+          <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+          <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+          <td>{{ responses[i].label if responses[i] is defined }}</td>
+          <td>{{ responses[i].time if responses[i] is defined }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>
