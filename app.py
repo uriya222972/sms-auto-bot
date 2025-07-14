@@ -1,272 +1,318 @@
-from flask import Flask, request, redirect, url_for, render_template, jsonify, session, flash
-from functools import wraps
-import requests
-import csv
-from io import TextIOWrapper
-from datetime import datetime
-import random
-import hashlib
-from storage import save_data, load_data
-
-app = Flask(__name__)
-app.secret_key = 'שנה_את_זה_לסוד_אמיתי'
-
-API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
-AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
-SENDER = "0001"
-
-users = {
-    'admin': hashlib.sha256('1234'.encode()).hexdigest(),
-    '22uriya22': hashlib.sha256('972uriya'.encode()).hexdigest()
-}
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if session.get('user') != '22uriya22':
-            return "גישה חסומה", 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-def load_user_data():
-    user = session.get('user', 'default')
-    return load_data().get(user, {})
-
-def save_user_data(data):
-    user = session.get('user', 'default')
-    full_data = load_data()
-    full_data[user] = data
-    save_data(full_data)
-
-def get_user_variables():
-    saved = load_user_data()
-    return {
-        "rows": saved.get("rows", []),
-        "sent_indices": set(saved.get("sent_indices", [])),
-        "phone_map": saved.get("phone_map", {}),
-        "responses": saved.get("responses", {}),
-        "send_log": saved.get("send_log", {}),
-        "scheduled_retries": saved.get("scheduled_retries", {}),
-        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}."),
-        "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
-        "encouragements": saved.get("encouragements", {}),
-        "activation_word": saved.get("activation_word", "התחל"),
-        "filename": saved.get("filename", ""),
-        "target_goal": saved.get("target_goal", 100),
-        "bonus_goal": saved.get("bonus_goal", 0),
-        "bonus_active": saved.get("bonus_active", False),
-        "name_map": saved.get("name_map", {}),
-        "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
-        "pending_names": saved.get("pending_names", {})
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ClickCall - מערכת טלפנייה</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(to right, #f0f4f8, #ffffff);
+      color: #333;
+      direction: rtl;
     }
+    .header-bar {
+      background-color: #263238;
+      color: #fff;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .logo-title {
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .telephony-button {
+      background-color: #00bfa5;
+      color: #fff;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .telephony-button:hover {
+      background-color: #00897b;
+    }
+    .user-info {
+      font-size: 14px;
+      color: #ccc;
+      margin-top: 4px;
+    }
+    .section {
+      background: #fff;
+      border-radius: 16px;
+      margin: 24px auto;
+      max-width: 900px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 24px;
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #00695c;
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="file"],
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 10px;
+    }
+    .progress-bar {
+      height: 24px;
+      background: #c8e6c9;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: #388e3c;
+      color: #fff;
+      text-align: center;
+      line-height: 24px;
+      transition: width 0.3s;
+    }
+    .arrow {
+      margin-right: 6px;
+    }
+    details summary {
+      cursor: pointer;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #e0f2f1;
+    }
+  </style>
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <script>
+    function saveValue(key, value) {
+      fetch('/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ key, value })
+      });
+    }
+    
+    document.addEventListener("DOMContentLoaded", function() {
+  const table = $('#datatable').DataTable({
+    language: {
+      url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
+    },
+    pageLength: 50,
+    order: [],
+    initComplete: function () {
+      this.api().columns([5]).every(function () {
+        var column = this;
+        var select = $('<select><option value="">🔍 סינון תגובה</option></select>')
+          .appendTo($(column.header()).empty())
+          .on('change', function () {
+            var val = $.fn.dataTable.util.escapeRegex($(this).val());
+            column.search(val ? '^'+val+'$' : '', true, false).draw();
+          });
+        column.data().unique().sort().each(function (d) {
+          if (d) select.append('<option value="'+d+'">'+d+'</option>');
+        });
+      });
+    }
+  });
 
-def save_all():
-    data = get_user_variables()
-    data["sent_indices"] = list(data["sent_indices"])
-    save_user_data(data)
+  // גרף התקדמות
+  const total = {{ total_sent }};
+  const target = {{ target_goal }};
+  const bonus = {{ bonus_goal }};
 
-@app.route("/admin")
-@admin_required
-def admin_panel():
-    return render_template("admin.html")
+  const ctx = document.getElementById('progressChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['בוצע', 'נשאר'],
+      datasets: [{
+        data: [total, Math.max(target - total, 0)],
+        backgroundColor: ['#66bb6a', '#c8e6c9'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+});
+    });
+  </script>
+</head>
+<body>
+  <div class="header-bar">
+  <div>
+    <div class="logo-title">📱 ClickCall</div>
+    <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
+    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+  </div>
+</div>
+      <div class="user-info">משתמש מחובר: <strong>{{ username }}</strong></div>
+    </div>
+    <a href="/auto_telephony" target="_blank" class="telephony-button">ממשק טלפנים</a>
+    <a href="/display" target="_blank" class="telephony-button">תצוגה</a>
+  </div>
 
-@app.route("/save", methods=["POST"])
-@login_required
-def auto_save():
-    data = request.get_json()
-    if not data or "key" not in data or "value" not in data:
-        return "Invalid request", 400
-    key = data["key"]
-    value = data["value"]
-    vars = get_user_variables()
-    if key in vars:
-        vars[key] = value
-        save_user_data(vars)
-        return "Saved"
-    return "Unknown key", 400
+  <div class="section">
+  <h2>📤 העלאת קובץ טלפונים</h2>
+  <form method="POST" action="/upload" enctype="multipart/form-data">
+    <label>בחר קובץ CSV:</label>
+    <input type="file" name="file" accept=".csv">
+    <input type="submit" value="העלה">
+  </form>
+</div>
 
-@app.route("/", methods=["GET", "POST"])
-def root():
-    if request.method == "POST":
-        if request.form.get("Phone") and request.form.get("Message"):
-            return index()
-        elif 'user' in session:
-            return index()
-        else:
-            return "Unauthorized", 401
-    return redirect(url_for('login'))
+<div class="section">
+  <h2>🔑 מילת הפעלה והודעת פתיחה</h2>
+  <label>מילת הפעלה:</label>
+  <input type="text" value="{{ activation_word }}" onchange="saveValue('activation_word', this.value)">
+  <label>הודעת פתיחה:</label>
+  <textarea rows="2" onchange="saveValue('greeting_template', this.value)">{{ greeting_template }}</textarea>
+</div>
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if not username or not password:
-            error = "נא להזין שם משתמש וסיסמה"
-        else:
-            hashed = hashlib.sha256(password.encode()).hexdigest()
-            if users.get(username) == hashed:
-                session["user"] = username
-                if username == '22uriya22':
-                    return redirect(url_for("admin_panel"))
-                return redirect(url_for("index"))
-            else:
-                error = "שם משתמש או סיסמה שגויים"
-    return render_template("login.html", error=error)
+<div class="section">
+  <details>
+    <summary>🎯 יעד ובונוס</summary>
+    <label>יעד:</label>
+    <input type="number" value="{{ target_goal }}" onchange="saveValue('target_goal', this.value)">
+    <div class="progress-bar">
+      <div class="progress-bar-inner" style="width: {{ total_sent / target_goal * 100 if target_goal else 0 }}%">
+        <span class="arrow">⬆</span>{{ total_sent }} / {{ target_goal }}
+      </div>
+    </div>
 
-@app.route("/dashboard", methods=["GET", "POST"])
-@login_required
-def index():
-    vars = get_user_variables()
-    rows = vars["rows"]
-    sent_indices = vars["sent_indices"]
-    phone_map = vars["phone_map"]
-    responses = vars["responses"]
-    send_log = vars["send_log"]
-    scheduled_retries = vars["scheduled_retries"]
-    custom_template = vars["custom_template"]
-    response_map = vars["response_map"]
-    encouragements = vars["encouragements"]
-    activation_word = vars["activation_word"]
-    filename = vars["filename"]
-    target_goal = vars["target_goal"]
-    bonus_goal = vars["bonus_goal"]
-    bonus_active = vars["bonus_active"]
-    name_map = vars["name_map"]
-    greeting_template = vars["greeting_template"]
-    pending_names = vars["pending_names"]
+    <label>יעד בונוס:</label>
+    <input type="number" value="{{ bonus_goal }}" onchange="saveValue('bonus_goal', this.value)">
+    {% if bonus_active %}
+    <div class="progress-bar" style="background: #ffe0b2;">
+      <div class="progress-bar-inner" style="background: #fb8c00; width: {{ total_sent / bonus_goal * 100 if bonus_goal else 0 }}%">
+        🎁 {{ total_sent }} / {{ bonus_goal }}
+      </div>
+    </div>
+    {% endif %}
+  </details>
+</div>
 
-    if request.method == "POST":
-        data = request.get_json() if request.is_json else request.form
-        phone = data.get("Phone")
-        text = data.get("Message")
+<div class="section">
+  <h2>📊 סטטיסטיקות לפי תגובה</h2>
+  <div class="stats-boxes" style="display: flex; flex-wrap: wrap; gap: 10px;">
+    {% for label, count in stats.items() %}
+    <div style="flex:1 1 120px; background:#f1f8e9; border-radius:10px; padding:10px; text-align:center;">
+      <div style="font-weight:bold; color:#558b2f;">{{ label }}</div>
+      <div style="font-size:20px;">{{ count }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
 
-        if not phone or not text:
-            return "Missing parameters", 400
+<div class="section">
+  <details>
+    <summary>⚙️ הגדרות תגובות</summary>
+    <div class="response-grid" style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 10px;">
+      {% for digit, config in response_map.items() %}
+        <div style="border:1px solid #ccc; border-radius:10px; padding:10px;">
+          <label>ספרה: {{ digit }}</label>
+          <input type="text" placeholder="לדוג' תרם" value="{{ config.label }}" onchange="saveValue('response_map.{{ digit }}.label', this.value)">
+          <label>חזרה:</label>
+          <input type="checkbox" {% if config.callback_required %}checked{% endif %} onchange="saveValue('response_map.{{ digit }}.callback_required', this.checked)">
+          <label>שעות המתנה:</label>
+          <input type="number" value="{{ config.hours }}" min="0" onchange="saveValue('response_map.{{ digit }}.hours', this.value)">
+          <label>✉️ הודעות עידוד:</label>
+          <textarea rows="2" onchange="saveValue('encouragements.{{ digit }}', this.value)">{{ encouragements[digit]|join('
+') if encouragements[digit] is defined }}</textarea>
+        </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="copyEncouragements()">📎 שכפל את ההודעות לכל התגובות</button>
+    </div>
+  </details>
+</div>
 
-        if phone in pending_names:
-            name = text.strip()
-            name_map[phone] = name
-            del pending_names[phone]
-            for i in range(len(rows)):
-                if i not in sent_indices:
-                    sent_indices.add(i)
-                    send_log[i] = {"to": phone, "phone": phone, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "message": "נשלח לפי שם"}
-                    msg = custom_template.replace("{next}", rows[i]).replace("{name}", name)
-                    send_sms(phone, msg)
-                    save_all()
-                    return "שם נקלט ונשלחה הודעה"
-            return "אין מספרים זמינים"
+<script>
+  function copyEncouragements() {
+    const first = document.querySelector('.response-grid textarea')?.value;
+    if (!first) return;
+    document.querySelectorAll('.response-grid textarea').forEach(t => {
+      t.value = first;
+      const digit = t.closest('div').querySelector('label').textContent.replace('ספרה: ', '').trim();
+      saveValue(`encouragements.${digit}`, first);
+    });
+  }
+</script>
 
-        if text.strip() == activation_word:
-            pending_names[phone] = True
-            send_sms(phone, greeting_template)
-            save_all()
-            return "הודעת התחלה נקלטה"
+  <div class="section">
+    <details open>
+      <summary>📋 פתיחת טבלת נתונים</summary>
+      <form action="/download">
+        <input type="submit" value="📥 הורד נתונים כ־CSV">
+      </form>
+      <table id="datatable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>יעד</th>
+            <th>הודעה</th>
+            <th>אל</th>
+            <th>שעה</th>
+            <th>פירוש</th>
+            <th>שעת תגובה</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in range(rows|length) %}
+            <tr {% if i not in sent_indices %}style="background:#fffde7"{% endif %}>
+              <td>{{ i+1 }}</td>
+              <td>{{ name_map.get(rows[i], rows[i]) }}</td>
+              <td>{{ send_log[i].message if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].to if send_log[i] is defined }}</td>
+              <td>{{ send_log[i].time if send_log[i] is defined }}</td>
+              <td>{{ responses[i].label if responses[i] is defined }}</td>
+              <td>{{ responses[i].time if responses[i] is defined }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </div>
+<div class="section">
+  <h2>📈 גרף התקדמות</h2>
+  <canvas id="progressChart" width="400" height="200"></canvas>
+</div>
 
-        for digit in response_map:
-            if text.strip().endswith(digit) and text.strip()[:-1].strip().isdigit():
-                num = text.strip()[:-1].strip()
-                for i, val in enumerate(rows):
-                    if val == num:
-                        label = response_map[digit]["label"]
-                        responses[i] = {
-                            "message": digit,
-                            "label": label,
-                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-                        messages = encouragements.get(digit, [])
-                        next_number = next((rows[j] for j in range(len(rows)) if j not in sent_indices), None)
-                        if messages and next_number:
-                            msg = random.choice(messages).replace("{next}", next_number)
-                            send_sms(phone, msg)
-                        save_all()
-                        return "OK"
-
-        return "הודעה לא זוהתה"
-
-    stats = {}
-    for r in responses.values():
-        label = r.get("label", "לא ידוע")
-        stats[label] = stats.get(label, 0) + 1
-
-    percentage = round((len(sent_indices) / target_goal) * 100, 2) if target_goal else 0
-
-    return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template, percentage=percentage)
-
-@app.route("/view")
-@login_required
-def view_stats():
-    vars = get_user_variables()
-    responses = vars["responses"]
-    target_goal = vars["target_goal"]
-    sent_count = len(vars["sent_indices"])
-
-    stats = {}
-    for r in responses.values():
-        label = r.get("label", "לא ידוע")
-        stats[label] = stats.get(label, 0) + 1
-
-    percentage = round((sent_count / target_goal) * 100, 2) if target_goal else 0
-
-    return render_template("view.html", stats=stats, percentage=percentage, target_goal=target_goal, sent_count=sent_count)
-
-@app.route("/upload", methods=["POST"])
-@login_required
-def upload():
-    vars = get_user_variables()
-    rows = vars["rows"]
-    file = request.files.get("file")
-    if not file:
-        return "לא נבחר קובץ", 400
-
-    try:
-        filename = file.filename
-        stream = TextIOWrapper(file.stream, encoding="utf-8-sig")
-        csv_input = csv.reader(stream)
-        new_numbers = [row[0].strip() for row in csv_input if row and len(row) > 0 and row[0].strip()]
-        rows.extend(new_numbers)
-        vars["filename"] = filename
-        vars["sent_indices"] = list(vars.get("sent_indices", set()))
-        save_user_data(vars)
-        return redirect(url_for("index"))
-    except Exception as e:
-        return f"שגיאה בהעלאת הקובץ: {e}", 500
-
-@app.route("/reset", methods=["POST"])
-@login_required
-def reset():
-    vars = get_user_variables()
-    vars["rows"].clear()
-    vars["sent_indices"].clear()
-    vars["phone_map"].clear()
-    vars["responses"].clear()
-    vars["send_log"].clear()
-    vars["scheduled_retries"].clear()
-    vars["name_map"].clear()
-    vars["pending_names"].clear()
-    save_user_data(vars)
-    return redirect(url_for("index"))
-
-@app.route("/telephony")
-@login_required
-def telephony():
-    vars = get_user_variables()
-    return render_template("telephony.html", response_map=vars["response_map"])
-
-def send_sms(phone, text):
-    payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
-    headers = {"Authorization": AUTH_HEADER, "Content-Type": "application/json"}
-    try:
-        requests.post(API_URL, headers=headers, json=payload)
-    except Exception as e:
-        print("שגיאה בשליחת SMS:", e)
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
