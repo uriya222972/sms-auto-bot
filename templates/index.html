@@ -179,6 +179,15 @@
   </div>
 
   <div class="section">
+  <h2>📤 העלאת קובץ טלפונים</h2>
+  <form method="POST" action="/upload" enctype="multipart/form-data">
+    <label>בחר קובץ CSV:</label>
+    <input type="file" name="file" accept=".csv">
+    <input type="submit" value="העלה">
+  </form>
+</div>
+
+<div class="section">
   <h2>🔑 מילת הפעלה והודעת פתיחה</h2>
   <label>מילת הפעלה:</label>
   <input type="text" value="{{ activation_word }}" onchange="saveValue('activation_word', this.value)">
