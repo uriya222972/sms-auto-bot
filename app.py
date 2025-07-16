@@ -20,22 +20,6 @@ users = {
     '22uriya22': hashlib.sha256('972uriya'.encode()).hexdigest()
 }
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if session.get('user') != '22uriya22':
-            return "גישה חסומה", 403
-        return f(*args, **kwargs)
-    return decorated_function
-
 def load_user_data():
     user = session.get('user', 'default')
     return load_data().get(user, {})
