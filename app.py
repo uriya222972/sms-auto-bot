@@ -124,12 +124,17 @@ def root():
         phone = data.get("Phone")
         text = data.get("Message")
         if phone and text:
+            # נניח שאתה רוצה להשתמש במשתמש default
+            session["user"] = "default"
             return index()
         else:
             return "Unauthorized", 401
+
+    # בקשת GET רגילה: אל תנתב אוטומטית ל־login
     if 'user' in session:
         return redirect(url_for("index"))
-    return redirect(url_for('login'))
+    return "ברוך הבא. נא להתחבר כדי להמשיך.", 200
+
 
 
 @app.route("/login", methods=["GET", "POST"])
