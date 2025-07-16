@@ -130,10 +130,10 @@ def root():
         else:
             return "Unauthorized", 401
 
-    # בקשת GET רגילה: אל תנתב אוטומטית ל־login
-    if 'user' in session:
-        return redirect(url_for("index"))
-    return "ברוך הבא. נא להתחבר כדי להמשיך.", 200
+  # בקשת GET רגילה: נטען את הדשבורד כברירת מחדל
+session["user"] = "default"
+return index()
+
 
 
 
