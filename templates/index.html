@@ -118,7 +118,8 @@
         body: JSON.stringify({ key, value })
       });
     }
-    
+  </script>
+ 
     document.addEventListener("DOMContentLoaded", function() {
   const table = $('#datatable').DataTable({
     language: {
@@ -312,5 +313,21 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
+
+<script>
+  $(document).ready(function () {
+    $('#datatable').DataTable({
+      language: {
+        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/he.json'
+      },
+      pageLength: 50,
+      responsive: true,
+      stateSave: true,
+      order: []
+    });
+  });
+</script>
 </body>
 </html>
