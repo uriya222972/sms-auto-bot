@@ -81,7 +81,6 @@ def save_all():
     save_user_data(data)
 
 @app.route("/admin")
-@admin_required
 def admin_panel():
     return render_template("admin.html")
 
