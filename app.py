@@ -120,13 +120,17 @@ def auto_save():
 @app.route("/", methods=["GET", "POST"])
 def root():
     if request.method == "POST":
-        if request.form.get("Phone") and request.form.get("Message"):
+        data = request.get_json() if request.is_json else request.form
+        phone = data.get("Phone")
+        text = data.get("Message")
+        if phone and text:
             return index()
         else:
             return "Unauthorized", 401
     if 'user' in session:
         return redirect(url_for("index"))
     return redirect(url_for('login'))
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
