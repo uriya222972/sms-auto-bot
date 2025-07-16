@@ -69,7 +69,7 @@ def get_user_variables():
         }),
         "encouragements": saved.get("encouragements", {
             "1": ["יישר כח! אלוף! {next}"],
-            "2": ["לא נורא, כנראה לא הסתדר לו – בטלפון הבא בע"ה. {next}"],
+             "2": ['לא נורא, כנראה לא הסתדר לו – בטלפון הבא בע"ה. {next}'],
             "3": ["לא ענה – ממשיכים לטלפון הבא. {next}"],
             "4": ["נחזור אליו בעוד כמה שעות – בינתיים קדימה! {next}"],
             "5": ["נחזור בעוד 8 שעות, אל תתייאש! {next}"],
@@ -79,6 +79,8 @@ def get_user_variables():
             "9": ["סיים לדבר – כל הכבוד! {next}"]
         }),
         "activation_word": saved.get("activation_word", "התחל"),
+        "end_word": saved.get("end_word", "סיום"),
+        "end_message": saved.get("end_message", "תודה רבה! ביצעת {count} שיחות. כל הכבוד!"),
         "filename": saved.get("filename", ""),
         "target_goal": saved.get("target_goal", 100),
         "bonus_goal": saved.get("bonus_goal", 0),
@@ -87,6 +89,7 @@ def get_user_variables():
         "greeting_template": saved.get("greeting_template", "שלום! נא לשלוח את שמך כדי להתחיל."),
         "pending_names": saved.get("pending_names", {})
     }
+
 
 def save_all():
     data = get_user_variables()
