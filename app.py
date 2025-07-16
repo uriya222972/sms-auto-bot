@@ -124,16 +124,14 @@ def root():
         phone = data.get("Phone")
         text = data.get("Message")
         if phone and text:
-            # נניח שאתה רוצה להשתמש במשתמש default
             session["user"] = "default"
             return index()
         else:
             return "Unauthorized", 401
 
-  # בקשת GET רגילה: נטען את הדשבורד כברירת מחדל
-session["user"] = "default"
-return index()
-
+    # בקשת GET רגילה: נטען את הדשבורד כברירת מחדל
+    session["user"] = "default"
+    return index()
 
 
 
