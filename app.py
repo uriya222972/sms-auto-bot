@@ -55,9 +55,29 @@ def get_user_variables():
         "responses": saved.get("responses", {}),
         "send_log": saved.get("send_log", {}),
         "scheduled_retries": saved.get("scheduled_retries", {}),
-        "custom_template": saved.get("custom_template", "יישר כח {name}! המספר הבא הוא {next}."),
-        "response_map": saved.get("response_map", {str(i): {"label": f"הגדרה {i}", "callback_required": False, "hours": 0, "followups": []} for i in range(1, 10)}),
-        "encouragements": saved.get("encouragements", {}),
+        "custom_template": saved.get("custom_template", "המספר הבא הוא {next}."),
+        "response_map": saved.get("response_map", {
+            "1": {"label": "תרם", "callback_required": False, "hours": 0, "followups": []},
+            "2": {"label": "לא תרם", "callback_required": False, "hours": 0, "followups": []},
+            "3": {"label": "לא ענה", "callback_required": True, "hours": 5, "followups": []},
+            "4": {"label": "לחזור בעוד 5 שעות", "callback_required": True, "hours": 5, "followups": []},
+            "5": {"label": "לחזור בעוד 8 שעות", "callback_required": True, "hours": 8, "followups": []},
+            "6": {"label": "הבטיח לתרום", "callback_required": True, "hours": 2, "followups": []},
+            "7": {"label": "שיחה חוזרת בערב", "callback_required": True, "hours": 6, "followups": []},
+            "8": {"label": "מספר שגוי", "callback_required": False, "hours": 0, "followups": []},
+            "9": {"label": "סיים לדבר", "callback_required": False, "hours": 0, "followups": []}
+        }),
+        "encouragements": saved.get("encouragements", {
+            "1": ["יישר כח! אלוף! {next}"],
+            "2": ["לא נורא, כנראה לא הסתדר לו – בטלפון הבא בע"ה. {next}"],
+            "3": ["לא ענה – ממשיכים לטלפון הבא. {next}"],
+            "4": ["נחזור אליו בעוד כמה שעות – בינתיים קדימה! {next}"],
+            "5": ["נחזור בעוד 8 שעות, אל תתייאש! {next}"],
+            "6": ["מצוין, מחכים שיתרום – לטלפון הבא! {next}"],
+            "7": ["בערב נתקשר שוב – עכשיו ממשיכים. {next}"],
+            "8": ["מספר שגוי – לא נורא, קדימה. {next}"],
+            "9": ["סיים לדבר – כל הכבוד! {next}"]
+        }),
         "activation_word": saved.get("activation_word", "התחל"),
         "filename": saved.get("filename", ""),
         "target_goal": saved.get("target_goal", 100),
@@ -92,6 +112,7 @@ def auto_save():
         save_user_data(vars)
         return "Saved"
     return "Unknown key", 400
+
 
 @app.route("/", methods=["GET", "POST"])
 def root():
@@ -270,4 +291,5 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
+
 
