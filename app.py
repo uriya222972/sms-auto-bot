@@ -53,7 +53,7 @@ def get_user_variables():
         }),
         "encouragements": saved.get("encouragements", {
             "1": ["יישר כח! אלוף! {next}"],
-             "2": ['לא נורא, כנראה לא הסתדר לו – בטלפון הבא בע"ה. {next}'],
+            "2": ["לא נורא, כנראה לא הסתדר לו – בטלפון הבא בע"ה. {next}"],
             "3": ["לא ענה – ממשיכים לטלפון הבא. {next}"],
             "4": ["נחזור אליו בעוד כמה שעות – בינתיים קדימה! {next}"],
             "5": ["נחזור בעוד 8 שעות, אל תתייאש! {next}"],
@@ -75,14 +75,10 @@ def get_user_variables():
     }
 
 
-def save_all():
-    data = get_user_variables()
-    data["sent_indices"] = list(data["sent_indices"])
-    save_user_data(data)
-
 @app.route("/admin")
 def admin_panel():
     return render_template("admin.html")
+
 
 @app.route("/save", methods=["POST"])
 @login_required
