@@ -1,5 +1,4 @@
 from flask import Flask, request, redirect, url_for, render_template, jsonify, session, flash
-from functools import wraps
 import requests
 import csv
 from io import TextIOWrapper
@@ -14,11 +13,6 @@ app.secret_key = 'שנה_את_זה_לסוד_אמיתי'
 API_URL = "                                            "
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
-
-users = {
-    'admin': hashlib.sha256('1234'.encode()).hexdigest(),
-    '22uriya22': hashlib.sha256('972uriya'.encode()).hexdigest()
-}
 
 def load_user_data():
     user = session.get('user', 'default')
@@ -74,28 +68,6 @@ def get_user_variables():
         "pending_names": saved.get("pending_names", {})
     }
 
-
-@app.route("/admin")
-def admin_panel():
-    return render_template("admin.html")
-
-
-@app.route("/save", methods=["POST"])
-@login_required
-def auto_save():
-    data = request.get_json()
-    if not data or "key" not in data or "value" not in data:
-        return "Invalid request", 400
-    key = data["key"]
-    value = data["value"]
-    vars = get_user_variables()
-    if key in vars:
-        vars[key] = value
-        save_user_data(vars)
-        return "Saved"
-    return "Unknown key", 400
-
-
 @app.route("/", methods=["GET", "POST"])
 def root():
     if request.method == "POST":
@@ -107,34 +79,10 @@ def root():
             return index()
         else:
             return "Unauthorized", 401
-
-    # בקשת GET רגילה: נטען את הדשבורד כברירת מחדל
     session["user"] = "default"
     return index()
 
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if not username or not password:
-            error = "נא להזין שם משתמש וסיסמה"
-        else:
-            hashed = hashlib.sha256(password.encode()).hexdigest()
-            if users.get(username) == hashed:
-                session["user"] = username
-                if username == '22uriya22':
-                    return redirect(url_for("admin_panel"))
-                return redirect(url_for("index"))
-            else:
-                error = "שם משתמש או סיסמה שגויים"
-    return render_template("login.html", error=error)
-
 @app.route("/dashboard", methods=["GET", "POST"])
-@login_required
 def index():
     vars = get_user_variables()
     rows = vars["rows"]
@@ -173,14 +121,14 @@ def index():
                     send_log[i] = {"to": phone, "phone": phone, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "message": "נשלח לפי שם"}
                     msg = custom_template.replace("{next}", rows[i]).replace("{name}", name)
                     send_sms(phone, msg)
-                    save_all()
+                    save_user_data(vars)
                     return "שם נקלט ונשלחה הודעה"
             return "אין מספרים זמינים"
 
         if text.strip() == activation_word:
             pending_names[phone] = True
             send_sms(phone, greeting_template)
-            save_all()
+            save_user_data(vars)
             return "הודעת התחלה נקלטה"
 
         for digit in response_map:
@@ -199,7 +147,7 @@ def index():
                         if messages and next_number:
                             msg = random.choice(messages).replace("{next}", next_number)
                             send_sms(phone, msg)
-                        save_all()
+                        save_user_data(vars)
                         return "OK"
 
         return "הודעה לא זוהתה"
@@ -213,25 +161,7 @@ def index():
 
     return render_template("index.html", rows=rows, responses=responses, send_log=send_log, total_sent=len(sent_indices), template=custom_template, response_map=response_map, activation_word=activation_word, filename=filename, target_goal=target_goal, bonus_goal=bonus_goal, bonus_active=bonus_active, stats=stats, encouragements=encouragements, name_map=name_map, greeting_template=greeting_template, percentage=percentage)
 
-@app.route("/view")
-@login_required
-def view_stats():
-    vars = get_user_variables()
-    responses = vars["responses"]
-    target_goal = vars["target_goal"]
-    sent_count = len(vars["sent_indices"])
-
-    stats = {}
-    for r in responses.values():
-        label = r.get("label", "לא ידוע")
-        stats[label] = stats.get(label, 0) + 1
-
-    percentage = round((sent_count / target_goal) * 100, 2) if target_goal else 0
-
-    return render_template("view.html", stats=stats, percentage=percentage, target_goal=target_goal, sent_count=sent_count)
-
 @app.route("/upload", methods=["POST"])
-@login_required
 def upload():
     vars = get_user_variables()
     rows = vars["rows"]
@@ -253,7 +183,6 @@ def upload():
         return f"שגיאה בהעלאת הקובץ: {e}", 500
 
 @app.route("/reset", methods=["POST"])
-@login_required
 def reset():
     vars = get_user_variables()
     vars["rows"].clear()
@@ -267,12 +196,6 @@ def reset():
     save_user_data(vars)
     return redirect(url_for("index"))
 
-@app.route("/telephony")
-@login_required
-def telephony():
-    vars = get_user_variables()
-    return render_template("telephony.html", response_map=vars["response_map"])
-
 def send_sms(phone, text):
     payload = {"Data": {"Phones": phone, "Sender": SENDER, "Message": text}}
     headers = {"Authorization": AUTH_HEADER, "Content-Type": "application/json"}
@@ -280,4 +203,3 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
-
