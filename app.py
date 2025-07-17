@@ -11,7 +11,7 @@ from storage import save_data, load_data
 app = Flask(__name__)
 app.secret_key = 'שנה_את_זה_לסוד_אמיתי'
 
-API_URL = "https://capi.inforu.co.il/api/v2/SMS/SendSms"
+API_URL = "                                            "
 AUTH_HEADER = "Basic MjJ1cml5YTIyOjRkNTFjZGU5LTBkZmQtNGYwYi1iOTY4LWQ5MTA0NjdjZmM4MQ=="
 SENDER = "0001"
 
@@ -280,5 +280,4 @@ def send_sms(phone, text):
         requests.post(API_URL, headers=headers, json=payload)
     except Exception as e:
         print("שגיאה בשליחת SMS:", e)
-
 
